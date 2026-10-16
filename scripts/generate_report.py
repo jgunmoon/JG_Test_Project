@@ -92,12 +92,52 @@ def render_item_report(item, db):
         counts = " : ".join(f"{t} {by_meeting[meeting][t]}" for t in TYPES + ("FFS",) if by_meeting[meeting][t])
         # '#'은 Mermaid에서 엔티티 코드로 써야 그대로 표시됩니다.
         lines.append(f"    {meeting.replace('#', '#35;')} : {counts}")
-    lines += ["```", "", "## 누적 히스토리", "",
+    lines += ["```", ""]
+    lines += _render_item_delta(item, db)
+    lines += ["## 누적 히스토리", "",
               "| 회의 | Agenda | 구분 | 내용 | 출처 |", "|---|---|---|---|---|"]
     for e in entries:
         lines.append(f"| {e['meeting']} | {e.get('agenda_item', '')} | {e['type']} "
                      f"| {_cell(e['text'])} | {_source_link(e['source'])} |")
     return "\n".join(lines + [""])
+
+
+def _render_item_delta(item, db):
+    from scripts import delta  # delta가 이 모듈을 import하므로 순환 import를 피해 함수 안에서 불러옵니다
+
+    pairs = delta.meeting_pairs(db)
+    if not pairs:
+        return []
+    deltas = [delta.compute(db, item["id"], p, c) for p, c in pairs]
+    lines = ["## 회의 간 변화 (Delta)", "",
+             "| 직전 → 최신 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |",
+             "|---|---|---|---|---|---|"]
+    for d in reversed(deltas):
+        lines.append(f"| {d['prev']} → {d['cur']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} "
+                     f"| {d['prev_ffs']} | {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
+    last = deltas[-1]
+    lines += ["", f"### 최신 Delta 상세 ({last['prev']} → {last['cur']})", ""]
+    if last["agenda_new"] or last["agenda_dropped"]:
+        lines += [f"- Agenda 신설: {', '.join(last['agenda_new']) or '없음'}",
+                  f"- Agenda 제외: {', '.join(last['agenda_dropped']) or '없음'}", ""]
+    if last["wa_confirmed"]:
+        lines += ["**Working Assumption 확정** (원문에 'Confirm ... working assumption' 문구가 있는 결정)", "",
+                  "| Agenda | 내용 | 출처 |", "|---|---|---|"]
+        lines += [f"| {e.get('agenda_item', '')} | {_cell(e['text'])} | {_source_link(e['source'])} |"
+                  for e in last["wa_confirmed"]]
+        lines.append("")
+    if last["ffs_followups"]:
+        lines += [f"**FFS 후속 결정 후보** — {last['prev']} FFS와 키워드가 {int(delta.MIN_SCORE * 100)}% 이상 겹치는 "
+                  f"같은 Agenda의 {last['cur']} 결정입니다. 자동 매칭 후보이므로 FFS 해소 여부는 원문으로 확인하세요.", "",
+                  f"| Agenda | {last['prev']} FFS | {last['cur']} 후보 결정 | 일치율 | 출처 |", "|---|---|---|---|---|"]
+        for f in last["ffs_followups"]:
+            lines.append(f"| {_cell(f['agenda_title'])} | {_cell(f['ffs'])} | {_cell(f['candidate_text'])} "
+                         f"| {int(f['score'] * 100)}% | FFS: {_source_link(f['prev_source'])}<br>"
+                         f"후보: {_source_link(f['candidate_source'])} |")
+        lines.append("")
+    if not (last["agenda_new"] or last["agenda_dropped"] or last["wa_confirmed"] or last["ffs_followups"]):
+        lines += ["직전 회의 대비 Agenda 변화, WA 확정, FFS 후속 후보가 없습니다.", ""]
+    return lines
 
 
 def render_meeting_report(meeting, config, db):
@@ -132,6 +172,17 @@ def render_dashboard(config, db):
         lines.append(f"| {item['name']} | {item.get('release', '')} | {new['Agreement']} "
                      f"| {new['Working Assumption']} | {ffs} | {len(mine)} "
                      f"| [보기](by_item/{item['id']}.md) |")
+    if len(meetings) > 1:
+        from scripts import delta
+        prev = meetings[-2]
+        lines += ["", f"## 직전 회의 대비 ({prev} → {latest})", "",
+                  "FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 아이템 리포트에서 원문과 함께 확인하세요.", "",
+                  "| 아이템 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |",
+                  "|---|---|---|---|---|---|"]
+        for item in config["items"]:
+            d = delta.compute(db, item["id"], prev, latest)
+            lines.append(f"| {item['name']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} | {d['prev_ffs']} "
+                         f"| {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
     lines += ["", "## 회의별 리포트", ""]
     lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]
     return "\n".join(lines + [""])

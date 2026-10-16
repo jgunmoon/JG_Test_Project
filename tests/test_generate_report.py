@@ -118,3 +118,19 @@ def test_output_is_deterministic(tmp_path):
     gr.write_reports(CONFIG, json.loads(json.dumps(db)), tmp_path / "b")
     for f in (tmp_path / "a").rglob("*.md"):
         assert f.read_text() == (tmp_path / "b" / f.relative_to(tmp_path / "a")).read_text()
+
+
+def test_delta_sections_in_dashboard_and_item_report():
+    prev = entry("RAN1#117", "csi_prediction", 1, ffs=["FFS: maximum number of DCI container sizes per UE"])
+    cur = entry("RAN1#118", "csi_prediction", 2, text="Maximum number of DCI container sizes per UE is 4")
+    wa = entry("RAN1#118", "csi_prediction", 3, text="Confirm the following working assumption: X")
+    for e in (prev, cur, wa):
+        e["agenda_title"] = "DCI"
+    db = make_db(prev, cur, wa)
+    dash = gr.render_dashboard(CONFIG, db)
+    assert "## 직전 회의 대비 (RAN1#117 → RAN1#118)" in dash
+    row = next(l for l in dash.splitlines() if l.startswith("| AI/ML CSI Prediction") and "→" not in l and "보기" not in l)
+    assert "| 2 | 1 | 1 | 1 |" in row   # 신규 결정, WA 확정, 직전 FFS, 후속 후보
+    item = gr.render_item_report(CONFIG["items"][0], db)
+    assert "## 회의 간 변화 (Delta)" in item
+    assert "후속 결정 후보" in item and "R1-TEST001" in item and "R1-TEST002" in item

@@ -16,6 +16,20 @@
 | ISAC | Rel-20 | 18 | 3 | 31 | 127 | [보기](by_item/isac.md) |
 | 6G Study Item (6GR, 기타) | Rel-20 | 126 | 6 | 68 | 619 | [보기](by_item/sixg_study.md) |
 
+## 직전 회의 대비 (RAN1#125 → RAN1#126)
+
+FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 아이템 리포트에서 원문과 함께 확인하세요.
+
+| 아이템 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |
+|---|---|---|---|---|---|
+| AI/ML for NR Air Interface | 4 | 0 | 0 | 0 | +0 / -0 |
+| Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등) | 33 | 0 | 0 | 0 | +0 / -0 |
+| CSI Acquisition / Prediction | 40 | 0 | 8 | 2 | +0 / -0 |
+| Beam Management | 12 | 0 | 0 | 0 | +0 / -0 |
+| Positioning | 0 | 0 | 0 | 0 | +0 / -0 |
+| ISAC | 28 | 0 | 17 | 7 | +0 / -0 |
+| 6G Study Item (6GR, 기타) | 138 | 1 | 53 | 7 | +6 / -2 |
+
 ## 회의별 리포트
 
 - [RAN1#126](by_meeting/ran1_126.md)

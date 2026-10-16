@@ -1,0 +1,55 @@
+# 추적할 PHY 아이템 공용 설정
+# 아이템을 추가할 때는 items 목록에 항목 하나를 추가하면 됩니다 (코드 수정 불필요).
+#
+# 필드 설명
+#   id            : 리포트 파일 이름으로 쓰이는 고유 ID (reports/by_item/<id>.md)
+#   name          : 리포트에 표시할 이름
+#   release       : 대상 릴리스 (예: Rel-19, Rel-20)
+#   agenda_items  : RAN1 회의별 Agenda Item 번호. 회의마다 번호가 바뀌므로
+#                   실제 Agenda 문서를 확인한 뒤 채웁니다. (추측으로 채우지 않음)
+#   keywords      : Agenda 제목이나 Chairman's Note 섹션 제목에서 찾을 키워드
+#   owner         : 담당 팀원 (선택)
+
+ftp_base_url: "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
+
+items:
+  - id: aiml_air_interface
+    name: "AI/ML for NR Air Interface"
+    release: "Rel-19"
+    agenda_items: {}        # 예: {"RAN1#118": "9.1.x"} — Agenda 문서 확인 후 기입
+    keywords: ["AI/ML", "air interface"]
+    owner: ""
+
+  - id: csi_prediction
+    name: "AI/ML CSI Prediction"
+    release: "Rel-19"
+    agenda_items: {}
+    keywords: ["CSI prediction"]
+    owner: ""
+
+  - id: beam_management
+    name: "AI/ML Beam Management"
+    release: "Rel-19"
+    agenda_items: {}
+    keywords: ["beam management"]
+    owner: ""
+
+  - id: positioning
+    name: "AI/ML Positioning"
+    release: "Rel-19"
+    agenda_items: {}
+    keywords: ["positioning"]
+    owner: ""
+
+  - id: sixg_study
+    name: "6G Study Item"
+    release: "Rel-20"
+    agenda_items: {}
+    keywords: ["6G", "6GR"]
+    owner: ""
+
+# 회의 일정. 3GPP 공식 일정 페이지에서 확인한 값만 기입합니다.
+#   id    : "RAN1#118" 형식
+#   start / end : YYYY-MM-DD
+#   ftp_dir     : WG1_RL1 아래의 회의 폴더 이름 (예: "TSGR1_118")
+meetings: []

@@ -49,3 +49,14 @@ ran1-6g-tracker/
 └── .github/workflows/
     └── auto_tracker.yml       # 매일/매주 스케줄링 실행(GitHub Actions) 및 리포트 자동 업데이트
 ```
+
+## 3. 실행 방법 (Commands)
+
+```bash
+pip install -r requirements.txt        # 의존성 설치
+python -m pytest -q                    # 테스트
+python -m scripts.generate_report      # data/agreements_db.json → reports/ 재생성
+```
+
+- `reports/` 아래 파일은 생성물입니다. 직접 수정하지 말고 DB나 설정을 고친 뒤 다시 생성합니다.
+- DB 스키마와 필수 필드(출처 문서 번호, FTP 링크)는 `data/SCHEMA.md`를 따릅니다.

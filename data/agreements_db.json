@@ -5,50 +5,50 @@
       "ftp_dir": "TSGR1_122",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_122/Inbox/Chair_notes/Chair%20notes%20RAN1%23122%20eom.zip",
       "agenda_source": "chair_notes_numbering",
-      "parser_version": 2
+      "parser_version": 3
     },
     "RAN1#122bis": {
       "ftp_dir": "TSGR1_122b",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_122b/Inbox/Chair_Notes/Chair%20notes%20RAN1%23122b%20eom4.docx",
       "agenda_source": "chair_notes_numbering",
-      "parser_version": 2
+      "parser_version": 3
     },
     "RAN1#123": {
       "ftp_dir": "TSGR1_123",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_123/Inbox/Chair_notes/Chair%20notes%20RAN1%23123%20-%20eom3.docx",
       "agenda_source": "chair_notes_numbering",
-      "parser_version": 2
+      "parser_version": 3
     },
     "RAN1#124": {
       "ftp_dir": "TSGR1_124",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124/Inbox/Chair_notes/Chair%20notes%20RAN1%23124%20-%20eom_03.docx",
       "agenda_source": "agenda.csv",
-      "parser_version": 2
+      "parser_version": 3
     },
     "RAN1#124bis": {
       "ftp_dir": "TSGR1_124b",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx",
       "agenda_source": "agenda.csv",
-      "parser_version": 2
+      "parser_version": 3
     },
     "RAN1#125": {
       "ftp_dir": "TSGR1_125",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx",
       "agenda_source": "agenda.csv",
-      "parser_version": 2
+      "parser_version": 3
     },
     "RAN1#126": {
       "ftp_dir": "TSGR1_126",
       "chair_notes_url": "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx",
       "agenda_source": "agenda.csv",
-      "parser_version": 2
+      "parser_version": 3
     }
   },
   "entries": [
     {
       "id": "RAN1#122:8.1:001",
       "meeting": "RAN1#122",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -64,7 +64,7 @@
     {
       "id": "RAN1#122:8.1:002",
       "meeting": "RAN1#122",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -82,7 +82,7 @@
     {
       "id": "RAN1#122:8.1:003",
       "meeting": "RAN1#122",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -100,7 +100,7 @@
     {
       "id": "RAN1#122:8.1.1:001",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -117,7 +117,7 @@
     {
       "id": "RAN1#122:8.1.1:002",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -134,7 +134,7 @@
     {
       "id": "RAN1#122:8.1.1:003",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -151,7 +151,7 @@
     {
       "id": "RAN1#122:8.1.1:004",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -168,7 +168,7 @@
     {
       "id": "RAN1#122:8.1.1:005",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -185,7 +185,7 @@
     {
       "id": "RAN1#122:8.1.1:006",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -202,7 +202,7 @@
     {
       "id": "RAN1#122:8.1.1:007",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -219,7 +219,7 @@
     {
       "id": "RAN1#122:8.1.1:008",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -236,7 +236,7 @@
     {
       "id": "RAN1#122:8.1.1:009",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -253,7 +253,7 @@
     {
       "id": "RAN1#122:8.1.1:010",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -270,7 +270,7 @@
     {
       "id": "RAN1#122:8.1.1:011",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -287,7 +287,7 @@
     {
       "id": "RAN1#122:8.1.1:012",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.1",
       "agenda_title": "Specification support for beam management",
       "type": "Agreement",
@@ -304,7 +304,7 @@
     {
       "id": "RAN1#122:8.1.2:001",
       "meeting": "RAN1#122",
-      "item": "positioning",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.2",
       "agenda_title": "Specification support for positioning accuracy enhancement",
       "type": "Agreement",
@@ -321,7 +321,7 @@
     {
       "id": "RAN1#122:8.1.2:002",
       "meeting": "RAN1#122",
-      "item": "positioning",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.2",
       "agenda_title": "Specification support for positioning accuracy enhancement",
       "type": "Agreement",
@@ -338,7 +338,7 @@
     {
       "id": "RAN1#122:8.1.2:003",
       "meeting": "RAN1#122",
-      "item": "positioning",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.2",
       "agenda_title": "Specification support for positioning accuracy enhancement",
       "type": "Agreement",
@@ -355,7 +355,7 @@
     {
       "id": "RAN1#122:8.1.2:004",
       "meeting": "RAN1#122",
-      "item": "positioning",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.2",
       "agenda_title": "Specification support for positioning accuracy enhancement",
       "type": "Conclusion",
@@ -372,7 +372,7 @@
     {
       "id": "RAN1#122:8.1.2:005",
       "meeting": "RAN1#122",
-      "item": "positioning",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.2",
       "agenda_title": "Specification support for positioning accuracy enhancement",
       "type": "Agreement",
@@ -389,7 +389,7 @@
     {
       "id": "RAN1#122:8.1.3:001",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -406,7 +406,7 @@
     {
       "id": "RAN1#122:8.1.3:002",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -423,7 +423,7 @@
     {
       "id": "RAN1#122:8.1.3:003",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -440,7 +440,7 @@
     {
       "id": "RAN1#122:8.1.3:004",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -457,7 +457,7 @@
     {
       "id": "RAN1#122:8.1.3:005",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -474,7 +474,7 @@
     {
       "id": "RAN1#122:8.1.3:006",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -491,7 +491,7 @@
     {
       "id": "RAN1#122:8.1.3:007",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -508,7 +508,7 @@
     {
       "id": "RAN1#122:8.1.3:008",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -525,7 +525,7 @@
     {
       "id": "RAN1#122:8.1.3:009",
       "meeting": "RAN1#122",
-      "item": "csi_prediction",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1.3",
       "agenda_title": "Specification support for CSI prediction",
       "type": "Agreement",
@@ -542,7 +542,7 @@
     {
       "id": "RAN1#122:8.2.1:001",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -559,7 +559,7 @@
     {
       "id": "RAN1#122:8.2.1:002",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -576,7 +576,7 @@
     {
       "id": "RAN1#122:8.2.1:003",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -593,7 +593,7 @@
     {
       "id": "RAN1#122:8.2.1:004",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -610,7 +610,7 @@
     {
       "id": "RAN1#122:8.2.1:005",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -627,7 +627,7 @@
     {
       "id": "RAN1#122:8.2.1:006",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -644,7 +644,7 @@
     {
       "id": "RAN1#122:8.2.1:007",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -661,7 +661,7 @@
     {
       "id": "RAN1#122:8.2.1:008",
       "meeting": "RAN1#122",
-      "item": "beam_management",
+      "item": "rel19_maintenance",
       "agenda_item": "8.2.1",
       "agenda_title": "Enhancements for UE-initiated/event-driven beam management",
       "type": "Agreement",
@@ -1992,7 +1992,7 @@
     {
       "id": "RAN1#122:8.7:001",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2010,7 +2010,7 @@
     {
       "id": "RAN1#122:8.7:002",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2028,7 +2028,7 @@
     {
       "id": "RAN1#122:8.7:003",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2046,7 +2046,7 @@
     {
       "id": "RAN1#122:8.7:004",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2064,7 +2064,7 @@
     {
       "id": "RAN1#122:8.7:005",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2082,7 +2082,7 @@
     {
       "id": "RAN1#122:8.7:006",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2100,7 +2100,7 @@
     {
       "id": "RAN1#122:8.7:007",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2118,7 +2118,7 @@
     {
       "id": "RAN1#122:8.7:008",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2136,7 +2136,7 @@
     {
       "id": "RAN1#122:8.7:009",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2154,7 +2154,7 @@
     {
       "id": "RAN1#122:8.7:010",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2172,7 +2172,7 @@
     {
       "id": "RAN1#122:8.7:011",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2190,7 +2190,7 @@
     {
       "id": "RAN1#122:8.7:012",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2208,7 +2208,7 @@
     {
       "id": "RAN1#122:8.7:013",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2226,7 +2226,7 @@
     {
       "id": "RAN1#122:8.7:014",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2244,7 +2244,7 @@
     {
       "id": "RAN1#122:8.7:015",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Working Assumption",
@@ -2262,7 +2262,7 @@
     {
       "id": "RAN1#122:8.7:016",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2280,7 +2280,7 @@
     {
       "id": "RAN1#122:8.7:017",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2298,7 +2298,7 @@
     {
       "id": "RAN1#122:8.7:018",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2316,7 +2316,7 @@
     {
       "id": "RAN1#122:8.7:019",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2334,7 +2334,7 @@
     {
       "id": "RAN1#122:8.7:020",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2352,7 +2352,7 @@
     {
       "id": "RAN1#122:8.7:021",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2370,7 +2370,7 @@
     {
       "id": "RAN1#122:8.7:022",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2388,7 +2388,7 @@
     {
       "id": "RAN1#122:8.7:023",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2406,7 +2406,7 @@
     {
       "id": "RAN1#122:8.7:024",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -2424,7 +2424,7 @@
     {
       "id": "RAN1#122:8.7:025",
       "meeting": "RAN1#122",
-      "item": "isac",
+      "item": "rel19_maintenance",
       "agenda_item": "8.7",
       "agenda_title": "Maintenance on channel modelling for Integrated Sensing And Communication (ISAC) for NR",
       "type": "Agreement",
@@ -4693,7 +4693,7 @@
     {
       "id": "RAN1#122bis:8.1:001",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4711,7 +4711,7 @@
     {
       "id": "RAN1#122bis:8.1:002",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4729,7 +4729,7 @@
     {
       "id": "RAN1#122bis:8.1:003",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4747,7 +4747,7 @@
     {
       "id": "RAN1#122bis:8.1:004",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4765,7 +4765,7 @@
     {
       "id": "RAN1#122bis:8.1:005",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4783,7 +4783,7 @@
     {
       "id": "RAN1#122bis:8.1:006",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4801,7 +4801,7 @@
     {
       "id": "RAN1#122bis:8.1:007",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4819,7 +4819,7 @@
     {
       "id": "RAN1#122bis:8.1:008",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4837,7 +4837,7 @@
     {
       "id": "RAN1#122bis:8.1:009",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4855,7 +4855,7 @@
     {
       "id": "RAN1#122bis:8.1:010",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4873,7 +4873,7 @@
     {
       "id": "RAN1#122bis:8.1:011",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4893,7 +4893,7 @@
     {
       "id": "RAN1#122bis:8.1:012",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4911,7 +4911,7 @@
     {
       "id": "RAN1#122bis:8.1:013",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -4929,7 +4929,7 @@
     {
       "id": "RAN1#122bis:8.1:014",
       "meeting": "RAN1#122bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -8558,7 +8558,7 @@
     {
       "id": "RAN1#123:8.1:001",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -8576,7 +8576,7 @@
     {
       "id": "RAN1#123:8.1:002",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Conclusion",
@@ -8594,7 +8594,7 @@
     {
       "id": "RAN1#123:8.1:003",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Conclusion",
@@ -8612,7 +8612,7 @@
     {
       "id": "RAN1#123:8.1:004",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -8630,7 +8630,7 @@
     {
       "id": "RAN1#123:8.1:005",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -8648,7 +8648,7 @@
     {
       "id": "RAN1#123:8.1:006",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -8666,7 +8666,7 @@
     {
       "id": "RAN1#123:8.1:007",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Conclusion",
@@ -8684,7 +8684,7 @@
     {
       "id": "RAN1#123:8.1:008",
       "meeting": "RAN1#123",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Conclusion",
@@ -11718,7 +11718,7 @@
     {
       "id": "RAN1#124:8.1:001",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -11736,7 +11736,7 @@
     {
       "id": "RAN1#124:8.1:002",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -11754,7 +11754,7 @@
     {
       "id": "RAN1#124:8.1:003",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -11772,7 +11772,7 @@
     {
       "id": "RAN1#124:8.1:004",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -11790,7 +11790,7 @@
     {
       "id": "RAN1#124:8.1:005",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -11808,7 +11808,7 @@
     {
       "id": "RAN1#124:8.1:006",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -11826,7 +11826,7 @@
     {
       "id": "RAN1#124:8.1:007",
       "meeting": "RAN1#124",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Conclusion",
@@ -15741,7 +15741,7 @@
     {
       "id": "RAN1#124bis:8.1:001",
       "meeting": "RAN1#124bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -15759,7 +15759,7 @@
     {
       "id": "RAN1#124bis:8.1:002",
       "meeting": "RAN1#124bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Agreement",
@@ -15777,7 +15777,7 @@
     {
       "id": "RAN1#124bis:8.1:003",
       "meeting": "RAN1#124bis",
-      "item": "aiml_air_interface",
+      "item": "rel19_maintenance",
       "agenda_item": "8.1",
       "agenda_title": "Maintenance on Artificial Intelligence (AI)/Machine Learning (ML) for NR Air Interface",
       "type": "Conclusion",

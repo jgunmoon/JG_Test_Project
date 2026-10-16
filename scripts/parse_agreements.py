@@ -32,7 +32,7 @@ from docx.text.paragraph import Paragraph
 from scripts.generate_report import ROOT, meeting_sort_key
 
 # 파싱 결과가 달라지는 수정을 하면 올립니다. DB의 회의별 parser_version과 다르면 자동 실행 때 다시 처리합니다.
-PARSER_VERSION = 2
+PARSER_VERSION = 3
 
 MARKER = re.compile(
     r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*:?", re.I)
@@ -135,7 +135,16 @@ def _table_lines(table):
 
 
 def match_item(heading_path, items):
-    """제목 경로에서 키워드가 가장 깊은 수준에서 일치하는 아이템을 고릅니다."""
+    """제목 경로에서 키워드가 가장 깊은 수준에서 일치하는 아이템을 고릅니다.
+
+    priority: true인 아이템은 경로 어디에서든 일치하면 우선합니다
+    (예: Rel-19 유지보수 아래의 'beam management' 하위 제목은 유지보수로 분류).
+    """
+    priority = [i for i in items if i.get("priority")]
+    if priority:
+        found = match_item(heading_path, [{**i, "priority": False} for i in priority])
+        if found:
+            return next(i for i in items if i["id"] == found["id"])
     best, best_depth = None, -1
     for item in items:
         for depth, title in enumerate(heading_path):

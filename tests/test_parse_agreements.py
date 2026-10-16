@@ -231,3 +231,15 @@ def test_title_wording_difference_is_fine_when_number_exists_in_agenda(tmp_path)
     entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS, agenda=agenda)
     assert entries[0]["agenda_item"] == "1.1"
     assert warnings == []
+
+
+def test_priority_item_wins_over_deeper_match():
+    # 실제 RAN1#122: 8 'Maintenance on Rel-19 ...' > 8.1 ... > 8.1.1 'Specification support for beam management'
+    items = [
+        {"id": "beam_management", "keywords": ["beam management"]},
+        {"id": "rel19_maintenance", "keywords": ["Maintenance on Rel-19"], "priority": True},
+    ]
+    path = ["Maintenance on Rel-19 NR and E-UTRA", "Maintenance on AI/ML", "Specification support for beam management"]
+    assert pa.match_item(path, items)["id"] == "rel19_maintenance"
+    # 우선 아이템이 일치하지 않는 곳에서는 기존 규칙(더 구체적인 제목) 그대로
+    assert pa.match_item(["Rel-20 Study of 6GR", "Beam management"], items)["id"] == "beam_management"

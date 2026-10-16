@@ -9,6 +9,8 @@
 #               여러 아이템이 일치하면 더 하위(구체적인) 제목에서 일치한 아이템이 이깁니다.
 #               예: "6GR"은 6GR 전체에 걸리지만, 그 아래 "Beam management" 제목은 beam_management로 갑니다.
 #               "air interface"처럼 여러 Agenda 제목에 흔한 문구는 쓰지 않습니다.
+#   priority  : true면 제목 경로 어디에서든 키워드가 일치할 때 다른 아이템보다 우선합니다 (선택).
+#               예: Rel-19 유지보수 아래의 'beam management' 하위 제목은 Beam Management가 아니라 유지보수로 갑니다.
 #   owner     : 담당 팀원 (선택)
 #
 # Agenda 번호는 Chair notes에서 자동으로 계산하므로 여기에 적지 않습니다.
@@ -37,6 +39,7 @@ items:
     # 8 "Maintenance on Rel-19 NR and E-UTRA" 전체 (8.1 AI/ML·MIMO·NES·NTN, 8.2 기타, 8.3 UE features)
     # 대부분 TS 38.211~38.215 등의 TP/CR 승인입니다.
     keywords: ["Maintenance on Rel-19"]
+    priority: true   # 유지보수 아래 결정은 BM/Positioning 등 하위 주제와 관계없이 모두 여기로
     owner: ""
 
   - id: csi_prediction

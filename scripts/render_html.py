@@ -4,19 +4,18 @@ generate_report가 마크다운 리포트와 함께 호출합니다. 외부 스�
 (글꼴만 Google Fonts, 없으면 시스템 글꼴), 같은 DB면 같은 HTML이 나옵니다.
 상세 리포트 링크는 config의 report_base_url 기준입니다 (비우면 reports/ 기준 상대 경로).
 """
-from collections import Counter
+import json
+from collections import Counter, defaultdict
 from html import escape
 
-import json
-
-from scripts import delta
-from scripts.generate_report import TYPES, meeting_slug, meeting_sort_key
+from scripts import agenda, delta
+from scripts.generate_report import TYPES, all_sections, meeting_slug, meeting_sort_key, slug
 
 TITLE = "RAN1 6G PHY Tracker"
 TYPE_LABEL = {"Agreement": "Agreement", "Working Assumption": "WA", "Conclusion": "Conclusion"}
 
 CSS = """
-/* 레이아웃: 요약(직전 회의 대비) → 아이템 카드(작은 막대그래프) → Delta 상세 → 회의 목록 */
+/* 레이아웃: 검색 → 직전 회의 대비 → Agenda 목차(펼치면 결정) → 섹션 카드(작은 막대그래프) → Delta 상세 → 회의 목록 */
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --ink-2: #4a5260; --ink-3: #737b88;
   --rule: #dfe3e9; --accent: #2a78d6; --accent-soft: #b9d2f1; --candidate: #8a5a00; --candidate-bg: #fff3d6;
@@ -77,7 +76,7 @@ svg.chart .bar .hit { fill: transparent; }
 svg.chart text.val { fill: var(--ink); font-size: 11px; }
 .card-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; flex-wrap: wrap; }
 .empty { color: var(--ink-3); font-size: 13px; padding: 20px 0; text-align: center; border: 1px dashed var(--rule); border-radius: 6px; }
-details { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; }
+details { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; min-width: 0; }
 details > summary { cursor: pointer; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
 details > summary h3 { display: inline; }
 details[open] > summary { border-bottom: 1px solid var(--rule); }
@@ -111,6 +110,14 @@ table.matrix th.num { white-space: normal; min-width: 7ch; max-width: 16ch; text
 .result-head .type { font-size: 12px; color: var(--ink-3); }
 .result .src { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
 mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+table.tree td { padding-top: 6px; padding-bottom: 6px; }
+table.tree td.agenda { min-width: 28ch; }
+table.tree .depth-0 td { background: var(--bg); font-weight: 600; }
+.agenda-num { font-family: var(--font-data); font-size: 13px; margin-right: 8px; }
+.hist { display: block; font-size: 12px; color: var(--ink-3); }
+.toggle { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px;
+  background: var(--panel); color: var(--accent); cursor: pointer; white-space: nowrap; }
+.agenda-entries { display: grid; gap: 10px; padding: 4px 4px 8px; }
 .cell-text { white-space: pre-line; max-height: 9em; overflow-y: auto; min-width: 24ch; overflow-wrap: anywhere; }
 .counts { font-family: var(--font-data); font-size: 12px; color: var(--ink-3); }
 footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 16px; }
@@ -126,11 +133,11 @@ SCRIPT = r"""
   if (!dataEl) return;
   const DATA = JSON.parse(dataEl.textContent);
   const $ = id => document.getElementById(id);
-  const q = $('q'), fItem = $('f-item'), fMeeting = $('f-meeting'), fType = $('f-type'), fWord = $('f-word');
+  const q = $('q'), fSection = $('f-section'), fMeeting = $('f-meeting'), fType = $('f-type'), fWord = $('f-word');
   const out = $('results'), summary = $('summary'), PAGE = 50;
   let hits = [], shown = 0, timer;
   const opt = (sel, value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; sel.append(o); };
-  Object.entries(DATA.items).forEach(([id, name]) => opt(fItem, id, name));
+  DATA.sections.forEach(([key, label]) => opt(fSection, key, label));
   [...DATA.meetings].reverse().forEach(m => opt(fMeeting, m, m));
   const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = (t, word) => word ? `(?<![A-Za-z0-9])${esc(t)}(?![A-Za-z0-9])` : esc(t);
@@ -151,7 +158,7 @@ SCRIPT = r"""
     const box = el('article', 'result');
     const head = el('div', 'result-head');
     head.append(el('span', 'mono', e.meeting), el('span', 'mono', e.agenda_item),
-      el('span', 'muted', e.agenda_title), el('span', null, DATA.items[e.item] || e.item), el('span', 'type', e.type));
+      el('span', 'muted', e.agenda_title), el('span', 'type', e.type));
     const text = el('div', 'cell-text small'); highlight(text, e.text, re);
     const src = el('div', 'src'); const s = e.source;
     src.append(link(s.url, s.doc));
@@ -173,7 +180,7 @@ SCRIPT = r"""
     // 'A B | C' 또는 'A B OR C' → (A 그리고 B) 또는 C. 대문자 OR만 연산자로 봅니다.
     const groups = q.value.trim().split(/\s+OR\s+|\s*\|\s*/).map(g => g.split(/\s+/).filter(Boolean)).filter(g => g.length);
     const terms = groups.flat();
-    const filtered = fItem.value || fMeeting.value || fType.value;
+    const filtered = fSection.value || fMeeting.value || fType.value;
     out.replaceChildren(); shown = 0;
     if (!terms.length && !filtered) {
       summary.textContent = `검색어를 입력하거나 필터를 고르세요. 전체 ${DATA.entries.length.toLocaleString()}건에서 찾습니다.`;
@@ -183,7 +190,7 @@ SCRIPT = r"""
     const has = (e, r) => r.test(e.text) || r.test(e.agenda_title);
     const re = terms.length ? new RegExp(terms.map(t => pattern(t, fWord.checked)).join('|'), 'gi') : null;
     hits = DATA.entries.filter(e =>
-      (!fItem.value || e.item === fItem.value) && (!fMeeting.value || e.meeting === fMeeting.value) &&
+      (!fSection.value || e.section === fSection.value) && (!fMeeting.value || e.meeting === fMeeting.value) &&
       (!fType.value || e.type === fType.value) &&
       (!groupRes.length || groupRes.some(g => g.every(r => has(e, r))))).reverse();
     const per = {}; hits.forEach(e => { per[e.meeting] = (per[e.meeting] || 0) + 1; });
@@ -193,7 +200,15 @@ SCRIPT = r"""
     showMore(re);
   }
   [q].forEach(n => n.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 150); }));
-  [fItem, fMeeting, fType, fWord].forEach(n => n.addEventListener('change', run));
+  [fSection, fMeeting, fType, fWord].forEach(n => n.addEventListener('change', run));
+  // Agenda 목차: '결정 보기'를 누르면 그 Agenda의 결정을 최신 회의부터 펼칩니다 (회의 간 같은 Agenda 포함).
+  document.querySelectorAll('[data-agenda]').forEach(btn => btn.addEventListener('click', () => {
+    const row = btn.closest('tr').nextElementSibling, box = row.querySelector('.agenda-entries');
+    if (!box.childElementCount) DATA.entries.filter(e => e.key === btn.dataset.agenda).reverse().forEach(e => box.append(render(e, null)));
+    row.hidden = !row.hidden;
+    btn.setAttribute('aria-expanded', String(!row.hidden));
+    btn.textContent = (row.hidden ? '결정 보기' : '접기') + ` (${btn.dataset.count})`;
+  }));
   document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { q.value = b.dataset.preset; run(); q.focus(); }));
   run();
 })();
@@ -241,8 +256,8 @@ def _num(n):
     return f'<td class="num{" zero" if not n else ""}">{n}</td>'
 
 
-def _bar_chart(item, db, meetings):
-    per = {m: [e for e in db["entries"] if e["item"] == item["id"] and e["meeting"] == m] for m in meetings}
+def _bar_chart(label, entries, meetings):
+    per = {m: [e for e in entries if e["meeting"] == m] for m in meetings}
     counts = [len(per[m]) for m in meetings]
     top = max(counts) if counts else 0
     if not top:
@@ -251,7 +266,7 @@ def _bar_chart(item, db, meetings):
     slot = (w - pad_l) / len(meetings)
     bw = min(26, slot * 0.6)
     out = [f'<svg class="chart" viewBox="0 0 {w} {h}" role="img" '
-           f'aria-label="{_e(item["name"])} 회의별 결정 수 (최대 {top}건)">',
+           f'aria-label="{_e(label)} 회의별 결정 수 (최대 {top}건)">',
            f'<line class="grid" x1="{pad_l}" x2="{w}" y1="{pad_t}" y2="{pad_t}"/>',
            f'<line class="grid" x1="{pad_l}" x2="{w}" y1="{h - pad_b}" y2="{h - pad_b}"/>',
            f'<text x="{pad_l - 4}" y="{pad_t + 3}" text-anchor="end">{top}</text>',
@@ -278,32 +293,27 @@ def _bar_chart(item, db, meetings):
     return "".join(out)
 
 
-def db_first(db):
-    return min((e["meeting"] for e in db["entries"]), key=meeting_sort_key)
-
-
-def _item_card(item, db, meetings, base):
+def _section_card(sec, entries, meetings, base):
     latest = meetings[-1]
-    mine = [e for e in db["entries"] if e["item"] == item["id"]]
-    now = [e for e in mine if e["meeting"] == latest]
+    now = [e for e in entries if e["meeting"] == latest]
     types = Counter(e["type"] for e in now)
     ffs = sum(len(e.get("ffs", [])) for e in now)
     return f"""<article class="card">
-  <div class="card-head"><h3>{_e(item["name"])}</h3><span class="rel">{_e(item.get("release", ""))}</span></div>
+  <div class="card-head"><h3>{_e(sec["title"])}</h3><span class="rel">Agenda {_e(sec["number"])}</span></div>
   <dl class="stats">
     <div><dt>Agreement</dt><dd>{types["Agreement"]}</dd></div>
     <div><dt>WA</dt><dd>{types["Working Assumption"]}</dd></div>
     <div><dt>미결 FFS</dt><dd>{ffs}</dd></div>
-    <div><dt>누적 결정</dt><dd>{len(mine)}</dd></div>
+    <div><dt>누적 결정</dt><dd>{len(entries)}</dd></div>
   </dl>
-  <span class="basis">앞의 세 값은 {_e(latest)} 기준, 누적은 {_e(_short(db_first(db)))}부터</span>
-  {_bar_chart(item, db, meetings)}
+  <span class="basis">앞의 세 값은 {_e(latest)} 기준, 누적은 {_e(_short(meetings[0]))}부터</span>
+  {_bar_chart(sec["title"], entries, meetings)}
   <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
-    {_link(f"{base}by_item/{item['id']}.md", "상세 리포트")}</div>
+    {_link(f"{base}by_agenda/{slug(sec['title'])}.md", "섹션 리포트")}</div>
 </article>"""
 
 
-def _delta_detail(item, d):
+def _delta_detail(name, d):
     blocks = []
     if d["agenda_new"] or d["agenda_dropped"]:
         blocks.append(f'<p class="agenda-change"><strong>Agenda 신설</strong> {_e(", ".join(d["agenda_new"]) or "없음")}<br>'
@@ -326,12 +336,76 @@ def _delta_detail(item, d):
 </div>""")
     if not blocks:
         return ""
-    count = len(d["wa_confirmed"]) + len(d["ffs_followups"])
     return f"""<details>
-  <summary><h3>{_e(item["name"])}</h3><span class="small muted">WA 확정 {len(d["wa_confirmed"])} ·
+  <summary><h3>{_e(name)}</h3><span class="small muted">WA 확정 {len(d["wa_confirmed"])} ·
     FFS 후속 후보 {len(d["ffs_followups"])} · Agenda +{len(d["agenda_new"])}/−{len(d["agenda_dropped"])}</span></summary>
   <div class="detail-body">{"".join(blocks)}</div>
-</details>""" if count or d["agenda_new"] or d["agenda_dropped"] else ""
+</details>"""
+
+
+def _toggle(key, count, cols):
+    return (f'<td><button type="button" class="toggle" data-agenda="{_e(key)}" data-count="{count}" '
+            f'aria-expanded="false">결정 보기 ({count})</button></td></tr>'
+            f'<tr class="agenda-detail" hidden><td colspan="{cols}"><div class="agenda-entries"></div></td></tr>')
+
+
+def _agenda_tree(index, sections, meetings, base):
+    heads = "".join(f'<th class="num">{_e(_short(m))}</th>' for m in meetings)
+    cols = len(meetings) + 3
+    blocks = []
+    rows_by_section = defaultdict(list)
+    for r in agenda.tree(index):
+        rows_by_section[r["section"]].append(r)
+    section_counts = defaultdict(lambda: defaultdict(int))
+    for e in index["entries"]:
+        section_counts[agenda.section_key(e)][e["meeting"]] += 1
+    for sec in sections:
+        rows = rows_by_section.get(sec["key"], [])
+        total = section_counts[sec["key"]]  # 최신 회의에 없는 Agenda의 결정까지 포함한 섹션 전체
+        body = []
+        for r in rows:
+            lin = index["lineages"].get(r["key"]) if r["key"] else None
+            hist = agenda.number_history(lin, meetings) if lin else ""
+            label = (f'<span class="agenda-num">{_e(r["number"])}</span>{_e(r["title"])}'
+                     + (f'<span class="hist">번호 변경 {_e(hist)}</span>' if hist else ""))
+            cells = "".join(_num(r["counts"].get(m, 0)) for m in meetings)
+            row = (f'<tr class="depth-{r["depth"]}"><td class="agenda" style="padding-left: {12 + 18 * r["depth"]}px">'
+                   f'{label}</td>{cells}{_num(sum(r["counts"].values()))}')
+            own = sum(lin["counts"].values()) if lin else 0
+            body.append(row + (_toggle(r["key"], own, cols) if lin else "<td></td></tr>"))
+        blocks.append(f"""<details>
+  <summary><h3><span class="agenda-num">{_e(sec["number"])}</span>{_e(sec["title"])}</h3>
+    <span class="counts">섹션 전체 {sum(total.values())}건 · {" · ".join(f"{_e(_short(m))} {total.get(m, 0)}" for m in meetings)}</span>
+    <span class="small">{_link(f"{base}by_agenda/{slug(sec['title'])}.md", "섹션 리포트")}</span></summary>
+  <div class="table-scroll"><table class="tree">
+    <thead><tr><th>Agenda ({_e(meetings[-1])} 번호)</th>{heads}<th class="num">합계</th><th></th></tr></thead>
+    <tbody>{"".join(body)}</tbody>
+  </table></div>
+</details>""")
+
+    old = agenda.retired(index)
+    if old:
+        body = []
+        for lin in old:
+            cells = "".join(_num(lin["counts"].get(m, 0)) for m in meetings)
+            body.append(f'<tr><td class="agenda"><span class="agenda-num">{_e(lin["last_number"])}</span>{_e(lin["title"])}'
+                        f'<span class="hist">{_e(lin["section_title"])} · 마지막 {_e(lin["last_meeting"])}</span></td>'
+                        f'{cells}{_num(sum(lin["counts"].values()))}' + _toggle(lin["key"], sum(lin["counts"].values()), cols))
+        blocks.append(f"""<details>
+  <summary><h3>최신 회의에는 없는 Agenda</h3><span class="small muted">{len(old)}개 · 삭제됐거나 제목이 바뀐 Agenda (자동으로 잇지 않음)</span></summary>
+  <div class="table-scroll"><table class="tree">
+    <thead><tr><th>Agenda (마지막 번호)</th>{heads}<th class="num">합계</th><th></th></tr></thead>
+    <tbody>{"".join(body)}</tbody>
+  </table></div>
+</details>""")
+    return f"""<section id="agenda">
+  <h2>Agenda 목차</h2>
+  <p class="lede">{_e(meetings[-1])}의 공식 Agenda 목차입니다. 표의 숫자는 회의별 결정 수이며 상위 Agenda는 하위 Agenda를 합친 값입니다.
+    회의 간에는 같은 섹션 안의 같은 Agenda 제목끼리 이어 붙이고, 번호가 바뀐 경우 함께 표시합니다.
+    {_e(meetings[-1])}에 없는 Agenda(삭제·통합·제목 변경)의 결정은 표에서 빠지고 맨 아래 '최신 회의에는 없는 Agenda'에 따로 모았습니다.
+    그래서 섹션 제목 옆의 '섹션 전체' 건수가 표의 합계보다 클 수 있습니다.</p>
+  {"".join(blocks)}
+</section>"""
 
 
 def _json_for_script(data):
@@ -339,13 +413,14 @@ def _json_for_script(data):
     return json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\!--")
 
 
-def _search_section(config, db, meetings):
-    keep = ("meeting", "agenda_item", "agenda_title", "item", "type", "text", "source")
+def _search_section(config, db, index, sections, meetings):
+    keep = ("meeting", "agenda_item", "agenda_title", "type", "text", "source")
     data = {
-        "items": {i["id"]: i["name"] for i in config["items"]},
+        "sections": [[s["key"], f'{s["number"]} {s["title"]}'] for s in sections],
         "meetings": meetings,
-        "entries": [{k: e.get(k, "") for k in keep} for e in
-                    sorted(db["entries"], key=lambda e: (meeting_sort_key(e["meeting"]), e["id"]))],
+        "entries": [{**{k: e.get(k, "") for k in keep}, "key": index["entry_keys"][e["id"]],
+                     "section": agenda.section_key(e)}
+                    for e in sorted(db["entries"], key=lambda e: (meeting_sort_key(e["meeting"]), e["id"]))],
     }
     presets = "".join(f'<button type="button" data-preset="{_e(p)}">{_e(p)}</button>'
                       for p in config.get("search_presets", []))
@@ -356,7 +431,7 @@ def _search_section(config, db, meetings):
     <input type="search" id="q" placeholder="예: DMRS | DM-RS, PDCCH REG bundle, codebook OR precoder" autocomplete="off"
       aria-label="결정 원문과 Agenda 제목에서 찾을 키워드">
     <div class="filters">
-      <label>아이템 <select id="f-item"><option value="">전체</option></select></label>
+      <label>섹션 <select id="f-section"><option value="">전체</option></select></label>
       <label>회의 <select id="f-meeting"><option value="">전체</option></select></label>
       <label>구분 <select id="f-type"><option value="">전체</option>{types}</select></label>
       <label><input type="checkbox" id="f-word" checked> 단어 단위로만 찾기</label>
@@ -376,67 +451,70 @@ def render_body(config, db):
     base = config.get("report_base_url", "")
     if not meetings:
         return f'<main class="wrap"><header><h1>{TITLE}</h1></header><p class="empty">아직 처리된 회의가 없습니다</p></main>'
+    index = agenda.build_index(db)
+    current = agenda.sections(index)
+    every = all_sections(index)
+    by_section = defaultdict(list)
+    for e in db["entries"]:
+        by_section[agenda.section_key(e)].append(e)
     latest = meetings[-1]
-    total = len(db["entries"])
     parts = [f"""<main class="wrap">
 <header>
-  <span class="eyebrow">3GPP TSG RAN WG1 · Chair notes 기준</span>
+  <span class="eyebrow">3GPP TSG RAN WG1 · Chair notes 기준 · 공식 Agenda별</span>
   <h1>{TITLE}</h1>
   <dl class="facts">
     <div><dt>최신 회의</dt><dd>{_e(latest)}</dd></div>
     <div><dt>추적 범위</dt><dd>{_e(meetings[0])} – {_e(_short(latest))} ({len(meetings)}회)</dd></div>
-    <div><dt>누적 결정</dt><dd>{total:,}</dd></div>
+    <div><dt>누적 결정</dt><dd>{len(db["entries"]):,}</dd></div>
   </dl>
 </header>"""]
-    parts.append(_search_section(config, db, meetings))
+    parts.append(_search_section(config, db, index, every, meetings))
 
     deltas = []
     if len(meetings) > 1:
         prev = meetings[-2]
-        deltas = [(item, delta.compute(db, item["id"], prev, latest)) for item in config["items"]]
+        deltas = [(f'{s["number"]} {s["title"]}', delta.compute(db, s["key"], prev, latest)) for s in current]
         rows = "".join(
-            f"<tr><td>{_e(item['name'])}</td>{_num(sum(d['new'].values()))}{_num(len(d['wa_confirmed']))}"
+            f"<tr><td>{_e(name)}</td>{_num(sum(d['new'].values()))}{_num(len(d['wa_confirmed']))}"
             f"{_num(d['prev_ffs'])}{_num(len(d['ffs_followups']))}"
             f"<td class=\"num\">+{len(d['agenda_new'])} / −{len(d['agenda_dropped'])}</td></tr>"
-            for item, d in deltas)
+            for name, d in deltas)
         parts.append(f"""<section>
   <h2>직전 회의 대비 <span class="mono muted">{_e(prev)} → {_e(latest)}</span></h2>
-  <p class="lede">WA 확정은 합의 원문에 "Confirm … working assumption" 문구가 있는 경우입니다.
+  <p class="lede">공식 Agenda 최상위 항목(섹션)별 변화입니다. WA 확정은 합의 원문에 "Confirm … working assumption" 문구가 있는 경우입니다.
     FFS 후속 결정 후보는 직전 회의 FFS와 키워드가 겹치는 같은 Agenda의 결정을 자동으로 찾은 것이라, 해소 여부는 원문으로 확인해야 합니다.</p>
   <div class="table-scroll"><table>
-    <thead><tr><th>아이템</th><th class="num">신규 결정</th><th class="num">WA 확정</th><th class="num">직전 FFS</th>
+    <thead><tr><th>섹션</th><th class="num">신규 결정</th><th class="num">WA 확정</th><th class="num">직전 FFS</th>
       <th class="num">FFS 후속 후보</th><th class="num">Agenda 신설 / 제외</th></tr></thead>
     <tbody>{rows}</tbody>
   </table></div>
 </section>""")
 
-    cards = "".join(_item_card(item, db, meetings, base) for item in config["items"])
-    parts.append(f'<section><h2>아이템별 현황</h2><div class="cards">{cards}</div></section>')
+    parts.append(_agenda_tree(index, current, meetings, base))
 
-    details = "".join(_delta_detail(item, d) for item, d in deltas)
+    cards = "".join(_section_card(s, by_section[s["key"]], meetings, base) for s in current)
+    parts.append(f'<section><h2>섹션별 추이</h2><div class="cards">{cards}</div></section>')
+
+    details = "".join(_delta_detail(name, d) for name, d in deltas)
     if details:
         parts.append(f'<section><h2>Delta 상세 <span class="mono muted">{_e(meetings[-2])} → {_e(latest)}</span></h2>'
-                     f'<p class="lede">아이템을 열면 원문 문장과 FTP 출처를 나란히 볼 수 있습니다.</p>{details}</section>')
+                     f'<p class="lede">섹션을 열면 원문 문장과 FTP 출처를 나란히 볼 수 있습니다.</p>{details}</section>')
 
-
-    head = "".join(f'<th class="num">{_e(item["name"])}</th>' for item in config["items"])
     body = []
     for m in reversed(meetings):
-        c = Counter(e["item"] for e in db["entries"] if e["meeting"] == m)
+        n = sum(1 for e in db["entries"] if e["meeting"] == m)
         cn = db.get("meetings", {}).get(m, {}).get("chair_notes_url")
-        body.append(f'<tr><td class="mono">{_link(f"{base}by_meeting/{meeting_slug(m)}.md", m)}</td>'
-                    + "".join(_num(c[item["id"]]) for item in config["items"])
-                    + _num(sum(c.values()))
-                    + f'<td>{_link(cn, "Chair notes") if cn else ""}</td></tr>')
+        body.append(f'<tr><td class="mono">{_link(f"{base}by_meeting/{meeting_slug(m)}.md", m)}</td>{_num(n)}'
+                    f'<td>{_link(cn, "Chair notes") if cn else ""}</td></tr>')
     parts.append(f"""<section>
-  <h2>회의별 결정 수</h2>
-  <div class="table-scroll"><table class="matrix">
-    <thead><tr><th>회의</th>{head}<th class="num">합계</th><th>원문</th></tr></thead>
+  <h2>회의별 리포트</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>회의</th><th class="num">결정 수</th><th>원문</th></tr></thead>
     <tbody>{"".join(body)}</tbody>
   </table></div>
 </section>
 <footer>모든 수치는 3GPP FTP의 회의 종료본 Chair notes에서 추출한 Agreement · Working Assumption · Conclusion입니다.
-  이 페이지는 scripts/render_html.py가 자동으로 생성합니다.</footer>
+  분류는 공식 Agenda를 그대로 따릅니다. 이 페이지는 scripts/render_html.py가 자동으로 생성합니다.</footer>
 </main>
 <div id="tip" hidden></div>""")
     return "\n".join(parts)

@@ -1,4 +1,4 @@
-"""직전 회의(RAN1 #N-1) 대비 최신 회의(#N)의 변경분(Delta)을 DB에서 계산합니다.
+"""직전 회의(RAN1 #N-1) 대비 최신 회의(#N)의 변경분(Delta)을 최상위 Agenda(섹션)별로 DB에서 계산합니다.
 
 DB만으로 결정되는 값이라 따로 저장하지 않고 리포트를 만들 때마다 계산합니다.
 
@@ -10,6 +10,7 @@ DB만으로 결정되는 값이라 따로 저장하지 않고 리포트를 만�
 """
 import re
 
+from scripts.agenda import section_key
 from scripts.generate_report import TYPES, meeting_sort_key
 
 MIN_SCORE = 0.6       # FFS 키워드 중 후보 결정에 들어 있어야 하는 비율
@@ -39,9 +40,11 @@ def meeting_pairs(db):
     return list(zip(meetings, meetings[1:]))
 
 
-def compute(db, item_id, prev, cur):
-    prev_entries = [e for e in db["entries"] if e["item"] == item_id and e["meeting"] == prev]
-    cur_entries = [e for e in db["entries"] if e["item"] == item_id and e["meeting"] == cur]
+def compute(db, section, prev, cur):
+    """section: 최상위 Agenda 제목(agenda.section_key 값). None이면 전체."""
+    mine = [e for e in db["entries"] if section is None or section_key(e) == section]
+    prev_entries = [e for e in mine if e["meeting"] == prev]
+    cur_entries = [e for e in mine if e["meeting"] == cur]
 
     new = {t: sum(1 for e in cur_entries if e["type"] == t) for t in TYPES}
     prev_titles = {_title(e): e.get("agenda_title", "") for e in prev_entries}

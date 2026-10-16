@@ -24,7 +24,6 @@ from pathlib import Path
 from urllib.parse import unquote
 
 import docx
-import yaml
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
@@ -32,7 +31,7 @@ from docx.text.paragraph import Paragraph
 from scripts.generate_report import ROOT, meeting_sort_key
 
 # 파싱 결과가 달라지는 수정을 하면 올립니다. DB의 회의별 parser_version과 다르면 자동 실행 때 다시 처리합니다.
-PARSER_VERSION = 3
+PARSER_VERSION = 4
 
 MARKER = re.compile(
     r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*:?", re.I)
@@ -134,27 +133,7 @@ def _table_lines(table):
     return lines
 
 
-def match_item(heading_path, items):
-    """제목 경로에서 키워드가 가장 깊은 수준에서 일치하는 아이템을 고릅니다.
-
-    priority: true인 아이템은 경로 어디에서든 일치하면 우선합니다
-    (예: Rel-19 유지보수 아래의 'beam management' 하위 제목은 유지보수로 분류).
-    """
-    priority = [i for i in items if i.get("priority")]
-    if priority:
-        found = match_item(heading_path, [{**i, "priority": False} for i in priority])
-        if found:
-            return next(i for i in items if i["id"] == found["id"])
-    best, best_depth = None, -1
-    for item in items:
-        for depth, title in enumerate(heading_path):
-            if title and any(k.lower() in title.lower() for k in item.get("keywords", [])):
-                if depth > best_depth:
-                    best, best_depth = item, depth
-    return best
-
-
-def parse_chair_notes(path, meeting, source_url, items, agenda=None):
+def parse_chair_notes(path, meeting, source_url, agenda=None):
     document = docx.Document(str(path))
     agenda_index = [(n, _norm_title(t)) for n, t in (agenda or {}).items()]
     meeting_base = re.match(r"(.*/WG1_RL1/[^/]+/)", source_url)
@@ -168,9 +147,9 @@ def parse_chair_notes(path, meeting, source_url, items, agenda=None):
 
     def close():
         nonlocal block
+        # Agenda 제목 아래에 있는 결정은 모두 기록합니다 (첫 Agenda 제목 이전의 서문은 제외).
         if block and not block["skip"] and block["lines"]:
-            item = match_item(titles, items)
-            if item:
+            if numbers:
                 agenda = numbers[-1] if numbers else ""
                 per_agenda[agenda] += 1
                 if agenda in unverified:
@@ -185,9 +164,9 @@ def parse_chair_notes(path, meeting, source_url, items, agenda=None):
                 entries.append({
                     "id": f"{meeting}:{agenda}:{per_agenda[agenda]:03d}",
                     "meeting": meeting,
-                    "item": item["id"],
                     "agenda_item": agenda,
-                    "agenda_title": titles[-1] if titles else "",
+                    "agenda_title": titles[-1],
+                    "agenda_path": [{"number": n, "title": t} for n, t in zip(numbers, titles)],
                     "type": block["type"],
                     "text": "\n".join(block["lines"]),
                     "ffs": block["ffs"],
@@ -278,10 +257,9 @@ def main():
     ap.add_argument("--db", type=Path, default=ROOT / "data" / "agreements_db.json")
     args = ap.parse_args()
 
-    config = yaml.safe_load((ROOT / "config" / "tracked_items.yaml").read_text(encoding="utf-8"))
     meeting = meeting_id_from_folder(args.folder)
     agenda = parse_agenda_csv(args.agenda.read_text(encoding="utf-8")) if args.agenda else None
-    entries, warnings = parse_chair_notes(args.docx, meeting, args.url, config["items"], agenda=agenda)
+    entries, warnings = parse_chair_notes(args.docx, meeting, args.url, agenda=agenda)
     for w in warnings:
         print(f"경고: {w}")
     db = json.loads(args.db.read_text(encoding="utf-8"))
@@ -293,8 +271,8 @@ def main():
     })
     args.db.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{meeting}: {len(entries)}건 추출 → {args.db}")
-    for item_id, n in Counter(e["item"] for e in entries).most_common():
-        print(f"  {item_id}: {n}")
+    for top, n in Counter(e["agenda_path"][0]["title"] for e in entries).most_common():
+        print(f"  {top}: {n}")
 
 
 if __name__ == "__main__":

@@ -1,20 +1,7 @@
-# 추적할 PHY 아이템 공용 설정
-# 아이템을 추가할 때는 items 목록에 항목 하나를 추가하면 됩니다 (코드 수정 불필요).
+# RAN1 트래커 공용 설정
 #
-# 필드 설명
-#   id        : 리포트 파일 이름으로 쓰이는 고유 ID (reports/by_item/<id>.md)
-#   name      : 리포트에 표시할 이름
-#   release   : 대상 릴리스 (예: Rel-19, Rel-20)
-#   keywords  : Chair notes의 Agenda 제목(상위 제목 포함)에서 찾을 문구. 대소문자 무시.
-#               여러 아이템이 일치하면 더 하위(구체적인) 제목에서 일치한 아이템이 이깁니다.
-#               예: "6GR"은 6GR 전체에 걸리지만, 그 아래 "Beam management" 제목은 beam_management로 갑니다.
-#               "air interface"처럼 여러 Agenda 제목에 흔한 문구는 쓰지 않습니다.
-#   priority  : true면 제목 경로 어디에서든 키워드가 일치할 때 다른 아이템보다 우선합니다 (선택).
-#               예: Rel-19 유지보수 아래의 'beam management' 하위 제목은 Beam Management가 아니라 유지보수로 갑니다.
-#   owner     : 담당 팀원 (선택)
-#
-# Agenda 번호는 Chair notes에서 자동으로 계산하므로 여기에 적지 않습니다.
-# 키워드는 RAN1#126 Chair notes의 실제 Agenda 제목을 보고 정했습니다.
+# 결정은 Chair notes의 공식 Agenda 그대로 분류합니다 (별도 아이템 분류 없음).
+# Agenda 번호는 Chair notes와 공식 agenda.csv에서 자동으로 가져오므로 여기에 적지 않습니다.
 
 ftp_base_url: "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
 
@@ -25,59 +12,6 @@ report_base_url: "https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-
 # RAN1#122는 Rel-20 6GR Study Agenda가 처음 나온 회의입니다 (RAN1#121 Chair notes에는 없음).
 # 파서가 바뀌면(PARSER_VERSION) 이 회의 이후 전체를 다시 처리합니다.
 track_from: "RAN1#122"
-
-items:
-  - id: aiml_air_interface
-    name: "AI/ML for NR Air Interface"
-    release: "Rel-20"
-    # 9.1 "Artificial Intelligence (AI)/Machine Learning (ML) for NR air interface enhancements"
-    # 6GR 안의 AI/ML: RAN1#122 "AI/ML in 6GR interface", RAN1#124 "AI/ML for RAN#111"
-    # Rel-19 AI/ML 유지보수(8.1)는 MIMO/NES/NTN과 한 Agenda로 묶여 있어 rel19_maintenance로 따로 모읍니다.
-    keywords: ["Machine Learning (ML)", "AI/ML in 6GR", "AI/ML for RAN#"]
-    owner: ""
-
-  - id: rel19_maintenance
-    name: "Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등)"
-    release: "Rel-19"
-    # 8 "Maintenance on Rel-19 NR and E-UTRA" 전체 (8.1 AI/ML·MIMO·NES·NTN, 8.2 기타, 8.3 UE features)
-    # 대부분 TS 38.211~38.215 등의 TP/CR 승인입니다.
-    keywords: ["Maintenance on Rel-19"]
-    priority: true   # 유지보수 아래 결정은 BM/Positioning 등 하위 주제와 관계없이 모두 여기로
-    owner: ""
-
-  - id: csi_prediction
-    name: "CSI Acquisition / Prediction"
-    release: "Rel-20"
-    # 9.1.1 "CSI spatial/frequency compression ...", 10.5.3 "CSI acquisition and report"
-    keywords: ["CSI prediction", "CSI spatial/frequency compression", "CSI acquisition"]
-    owner: ""
-
-  - id: beam_management
-    name: "Beam Management"
-    release: "Rel-20"
-    # 10.5.3.4 "Beam management for downlink and uplink"
-    keywords: ["Beam management"]
-    owner: ""
-
-  - id: positioning
-    name: "Positioning"
-    release: "Rel-20"
-    keywords: ["Positioning"]
-    owner: ""
-
-  - id: isac
-    name: "ISAC"
-    release: "Rel-20"
-    # 10.8 "ISAC"
-    keywords: ["ISAC"]
-    owner: ""
-
-  - id: sixg_study
-    name: "6G Study Item (6GR, 기타)"
-    release: "Rel-20"
-    # 10 "Rel-20 Study of 6GR" — 위 아이템에 속하지 않는 6GR 결정이 모두 여기로 옵니다.
-    keywords: ["6GR"]
-    owner: ""
 
 # HTML 대시보드 '결정 검색'의 추천 검색어 버튼. 누르면 그 단어로 바로 검색합니다.
 # 검색 자체는 아무 키워드나 입력할 수 있고, 여기에는 팀에서 자주 찾는 단어만 적어 둡니다.

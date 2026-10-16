@@ -33,8 +33,7 @@ def meeting_slug(meeting_id):
     return meeting_id.lower().replace("#", "_")
 
 
-def validate_db(db, config):
-    item_ids = {i["id"] for i in config["items"]}
+def validate_db(db, config=None):
     seen = set()
     for e in db["entries"]:
         where = f"entry {e.get('id')!r}"
@@ -42,8 +41,9 @@ def validate_db(db, config):
             raise ValidationError(f"{where}: duplicate id")
         seen.add(e.get("id"))
         meeting_sort_key(e.get("meeting", ""))
-        if e.get("item") not in item_ids:
-            raise ValidationError(f"{where}: item {e.get('item')!r} is not in config")
+        path = e.get("agenda_path") or []
+        if not path or not all(n.get("number") and n.get("title") for n in path):
+            raise ValidationError(f"{where}: agenda_path (번호와 제목) is required")
         if e.get("type") not in TYPES:
             raise ValidationError(f"{where}: type must be one of {TYPES}")
         if not e.get("text"):
@@ -77,126 +77,185 @@ def _meetings(db):
     return sorted({e["meeting"] for e in db["entries"]}, key=meeting_sort_key)
 
 
-def render_item_report(item, db):
-    entries = _sorted_entries(e for e in db["entries"] if e["item"] == item["id"])
-    lines = [f"# {item['name']} ({item.get('release', '')})", "", GENERATED_NOTE, ""]
-    if not entries:
-        return "\n".join(lines + ["아직 기록된 합의가 없습니다.", ""])
+def slug(title):
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60] or "agenda"
 
-    by_meeting = defaultdict(Counter)
-    for e in entries:
-        by_meeting[e["meeting"]][e["type"]] += 1
-        by_meeting[e["meeting"]]["FFS"] += len(e.get("ffs", []))
-    lines += ["## 회의별 진행", "", "```mermaid", "timeline", f"    title {item['name']}"]
-    for meeting in sorted(by_meeting, key=meeting_sort_key):
-        counts = " : ".join(f"{t} {by_meeting[meeting][t]}" for t in TYPES + ("FFS",) if by_meeting[meeting][t])
-        # '#'은 Mermaid에서 엔티티 코드로 써야 그대로 표시됩니다.
-        lines.append(f"    {meeting.replace('#', '#35;')} : {counts}")
+
+def all_sections(index):
+    """최신 회의의 최상위 Agenda(번호 순) + 최신 회의에는 없는 과거 최상위 Agenda."""
+    from scripts import agenda  # agenda가 이 모듈을 import하므로 함수 안에서 불러옵니다
+
+    current = agenda.sections(index)
+    keys = {s["key"] for s in current}
+    old = {}
+    for lin in agenda.retired(index):
+        k = agenda.norm(lin["section_title"])
+        if k not in keys and k not in old:
+            old[k] = {"number": lin["path"][0]["number"], "title": lin["section_title"], "key": k,
+                      "retired_after": lin["last_meeting"]}
+    return current + list(old.values())
+
+
+def _short(meeting):
+    return meeting.replace("RAN1", "")
+
+
+def _counts_line(counts, meetings):
+    return " · ".join(f"{_short(m)} {counts.get(m, 0)}" for m in meetings)
+
+
+def render_section_report(section, index, db):
+    from scripts import agenda, delta
+
+    meetings = index["meetings"]
+    mine = [e for e in db["entries"] if agenda.section_key(e) == section["key"]]
+    lines = [f"# {section['number']} {section['title']}", "", GENERATED_NOTE, "",
+             "공식 Agenda 기준으로 이 섹션의 결정을 모았습니다. 번호는 최신 회의 기준이며, 회의 간 연결은 "
+             "같은 섹션 안의 같은 Agenda 제목으로 합니다.", ""]
+    if section.get("retired_after"):
+        lines += [f"> 이 섹션은 {section['retired_after']} 이후 Agenda에 없습니다.", ""]
+
+    per = Counter(e["meeting"] for e in mine)
+    lines += ["## 회의별 결정 수", "", "```mermaid", "timeline", f"    title {section['title']}"]
+    lines += [f"    {m.replace('#', '#35;')} : 결정 {per[m]}" for m in meetings if per[m]]
     lines += ["```", ""]
-    lines += _render_item_delta(item, db)
-    lines += ["## 누적 히스토리", "",
-              "| 회의 | Agenda | 구분 | 내용 | 출처 |", "|---|---|---|---|---|"]
-    for e in entries:
-        lines.append(f"| {e['meeting']} | {e.get('agenda_item', '')} | {e['type']} "
-                     f"| {_cell(e['text'])} | {_source_link(e['source'])} |")
-    return "\n".join(lines + [""])
+
+    if len(meetings) > 1 and not section.get("retired_after"):
+        d = delta.compute(db, section["key"], meetings[-2], meetings[-1])
+        lines += _render_delta(d)
+
+    rows = [] if section.get("retired_after") else [r for r in agenda.tree(index) if r["section"] == section["key"]]
+    by_key = defaultdict(list)
+    for e in mine:
+        by_key[index["entry_keys"][e["id"]]].append(e)
+    for r in rows:
+        lines += [f"{'#' * min(2 + r['depth'], 6)} {r['number']} {r['title']}", ""]
+        lines.append(f"회의별 결정 수 (하위 Agenda 포함): {_counts_line(r['counts'], meetings)}")
+        if r["key"]:
+            lin = index["lineages"][r["key"]]
+            hist = agenda.number_history(lin, meetings)
+            if hist:
+                lines.append(f"\n번호 변경: {hist}")
+            lines += ["", "| 회의 | 번호 | 구분 | 내용 | 출처 |", "|---|---|---|---|---|"]
+            lines += [f"| {e['meeting']} | {e['agenda_item']} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
+                      for e in _sorted_entries(by_key[r["key"]])]
+        lines.append("")
+
+    old = [lin for lin in agenda.retired(index) if agenda.norm(lin["section_title"]) == section["key"]]
+    if old:
+        lines += ["## 최신 회의에는 없는 Agenda", "",
+                  "삭제됐거나 제목이 바뀐 Agenda입니다. 제목이 바뀐 경우에도 자동으로 잇지 않으니 위 목록과 비교해 보세요.", ""]
+        for lin in old:
+            lines += [f"### {lin['last_number']} {lin['title']} (마지막: {lin['last_meeting']})", "",
+                      f"회의별 결정 수: {_counts_line(lin['counts'], meetings)}", "",
+                      "| 회의 | 번호 | 구분 | 내용 | 출처 |", "|---|---|---|---|---|"]
+            lines += [f"| {e['meeting']} | {e['agenda_item']} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
+                      for e in _sorted_entries(by_key[lin["key"]])]
+            lines.append("")
+    return "\n".join(lines)
 
 
-def _render_item_delta(item, db):
-    from scripts import delta  # delta가 이 모듈을 import하므로 순환 import를 피해 함수 안에서 불러옵니다
+def _render_delta(d):
+    from scripts import delta
 
-    pairs = delta.meeting_pairs(db)
-    if not pairs:
-        return []
-    deltas = [delta.compute(db, item["id"], p, c) for p, c in pairs]
-    lines = ["## 회의 간 변화 (Delta)", "",
-             "| 직전 → 최신 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |",
-             "|---|---|---|---|---|---|"]
-    for d in reversed(deltas):
-        lines.append(f"| {d['prev']} → {d['cur']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} "
-                     f"| {d['prev_ffs']} | {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
-    last = deltas[-1]
-    lines += ["", f"### 최신 Delta 상세 ({last['prev']} → {last['cur']})", ""]
-    if last["agenda_new"] or last["agenda_dropped"]:
-        lines += [f"- Agenda 신설: {', '.join(last['agenda_new']) or '없음'}",
-                  f"- Agenda 제외: {', '.join(last['agenda_dropped']) or '없음'}", ""]
-    if last["wa_confirmed"]:
+    lines = [f"## 직전 회의 대비 ({d['prev']} → {d['cur']})", "",
+             f"- 신규 결정 {sum(d['new'].values())}건 (Agreement {d['new']['Agreement']}, "
+             f"Working Assumption {d['new']['Working Assumption']}, Conclusion {d['new']['Conclusion']})",
+             f"- Agenda 신설: {', '.join(d['agenda_new']) or '없음'}",
+             f"- Agenda 제외: {', '.join(d['agenda_dropped']) or '없음'}", ""]
+    if d["wa_confirmed"]:
         lines += ["**Working Assumption 확정** (원문에 'Confirm ... working assumption' 문구가 있는 결정)", "",
                   "| Agenda | 내용 | 출처 |", "|---|---|---|"]
-        lines += [f"| {e.get('agenda_item', '')} | {_cell(e['text'])} | {_source_link(e['source'])} |"
-                  for e in last["wa_confirmed"]]
+        lines += [f"| {e['agenda_item']} {_cell(e['agenda_title'])} | {_cell(e['text'])} | {_source_link(e['source'])} |"
+                  for e in d["wa_confirmed"]]
         lines.append("")
-    if last["ffs_followups"]:
-        lines += [f"**FFS 후속 결정 후보** — {last['prev']} FFS와 키워드가 {int(delta.MIN_SCORE * 100)}% 이상 겹치는 "
-                  f"같은 Agenda의 {last['cur']} 결정입니다. 자동 매칭 후보이므로 FFS 해소 여부는 원문으로 확인하세요.", "",
-                  f"| Agenda | {last['prev']} FFS | {last['cur']} 후보 결정 | 일치율 | 출처 |", "|---|---|---|---|---|"]
-        for f in last["ffs_followups"]:
+    if d["ffs_followups"]:
+        lines += [f"**FFS 후속 결정 후보** — {d['prev']} FFS와 키워드가 {int(delta.MIN_SCORE * 100)}% 이상 겹치는 "
+                  f"같은 Agenda의 {d['cur']} 결정입니다. 자동 매칭 후보이므로 FFS 해소 여부는 원문으로 확인하세요.", "",
+                  f"| Agenda | {d['prev']} FFS | {d['cur']} 후보 결정 | 일치율 | 출처 |", "|---|---|---|---|---|"]
+        for f in d["ffs_followups"]:
             lines.append(f"| {_cell(f['agenda_title'])} | {_cell(f['ffs'])} | {_cell(f['candidate_text'])} "
                          f"| {int(f['score'] * 100)}% | FFS: {_source_link(f['prev_source'])}<br>"
                          f"후보: {_source_link(f['candidate_source'])} |")
         lines.append("")
-    if not (last["agenda_new"] or last["agenda_dropped"] or last["wa_confirmed"] or last["ffs_followups"]):
-        lines += ["직전 회의 대비 Agenda 변화, WA 확정, FFS 후속 후보가 없습니다.", ""]
     return lines
 
 
 def render_meeting_report(meeting, config, db):
     lines = [f"# {meeting} 결과 요약", "", GENERATED_NOTE, ""]
-    for item in config["items"]:
-        entries = _sorted_entries(e for e in db["entries"]
-                                  if e["meeting"] == meeting and e["item"] == item["id"])
-        if not entries:
-            continue
-        lines += [f"## {item['name']}", "", "| 구분 | 내용 | 출처 |", "|---|---|---|"]
-        lines += [f"| {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |" for e in entries]
+    groups = defaultdict(list)
+    for e in db["entries"]:
+        if e["meeting"] == meeting:
+            groups[tuple((n["number"], n["title"]) for n in e["agenda_path"])].append(e)
+
+    def num_key(path):
+        return tuple(int(x) for x in path[-1][0].split(".") if x.isdigit())
+
+    for path in sorted(groups, key=num_key):
+        number, title = path[-1]
+        lines += [f"## {number} {title}", ""]
+        if len(path) > 1:
+            lines += [" › ".join(f"{n} {t}" for n, t in path[:-1]), ""]
+        lines += ["| 구분 | 내용 | 출처 |", "|---|---|---|"]
+        lines += [f"| {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |" for e in _sorted_entries(groups[path])]
         lines.append("")
     return "\n".join(lines)
 
 
 def render_dashboard(config, db):
+    from scripts import agenda, delta
+
     lines = ["# RAN1 6G PHY 트래커 대시보드", "", GENERATED_NOTE, ""]
     meetings = _meetings(db)
     if not meetings:
         return "\n".join(lines + ["아직 처리된 회의가 없습니다.", ""])
-
+    index = agenda.build_index(db)
     latest = meetings[-1]
-    lines += [f"**최신 회의: {latest}** ([전체 결과](by_meeting/{meeting_slug(latest)}.md))", "",
-              "미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.", "",
-              "| 아이템 | 릴리스 | 신규 Agreement | 신규 Working Assumption | 미결 FFS | 누적 결정 | 상세 |",
+    lines += [f"**최신 회의: {latest}** ([전체 결과](by_meeting/{meeting_slug(latest)}.md)) · "
+              f"추적 {meetings[0]}–{_short(latest)} · 누적 결정 {len(db['entries']):,}건", "",
+              "공식 Agenda의 최상위 항목(섹션)별 현황입니다. 미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.", "",
+              "| 섹션 (최신 번호) | 최신 Agreement | 최신 WA | 최신 Conclusion | 미결 FFS | 누적 결정 | 상세 |",
               "|---|---|---|---|---|---|---|"]
-    for item in config["items"]:
-        mine = [e for e in db["entries"] if e["item"] == item["id"]]
-        latest_mine = [e for e in mine if e["meeting"] == latest]
-        new = Counter(e["type"] for e in latest_mine)
-        ffs = sum(len(e.get("ffs", [])) for e in latest_mine)
-        lines.append(f"| {item['name']} | {item.get('release', '')} | {new['Agreement']} "
-                     f"| {new['Working Assumption']} | {ffs} | {len(mine)} "
-                     f"| [보기](by_item/{item['id']}.md) |")
+    for sec in all_sections(index):
+        mine = [e for e in db["entries"] if agenda.section_key(e) == sec["key"]]
+        now = [e for e in mine if e["meeting"] == latest]
+        c = Counter(e["type"] for e in now)
+        name = f"{sec['number']} {sec['title']}" + (f" (~{sec['retired_after']})" if sec.get("retired_after") else "")
+        lines.append(f"| {name} | {c['Agreement']} | {c['Working Assumption']} | {c['Conclusion']} "
+                     f"| {sum(len(e.get('ffs', [])) for e in now)} | {len(mine)} | [보기](by_agenda/{slug(sec['title'])}.md) |")
     if len(meetings) > 1:
-        from scripts import delta
         prev = meetings[-2]
         lines += ["", f"## 직전 회의 대비 ({prev} → {latest})", "",
-                  "FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 아이템 리포트에서 원문과 함께 확인하세요.", "",
-                  "| 아이템 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |",
+                  "FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 섹션 리포트에서 원문과 함께 확인하세요.", "",
+                  "| 섹션 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |",
                   "|---|---|---|---|---|---|"]
-        for item in config["items"]:
-            d = delta.compute(db, item["id"], prev, latest)
-            lines.append(f"| {item['name']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} | {d['prev_ffs']} "
-                         f"| {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
-    lines += ["", "보기 좋은 화면과 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
+        for sec in agenda.sections(index):
+            d = delta.compute(db, sec["key"], prev, latest)
+            lines.append(f"| {sec['number']} {sec['title']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} "
+                         f"| {d['prev_ffs']} | {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
+    lines += ["", "보기 좋은 화면, Agenda 목차, 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
               "", "## 회의별 리포트", ""]
     lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]
     return "\n".join(lines + [""])
 
 
 def write_reports(config, db, out_dir):
-    validate_db(db, config)
+    import shutil
+
+    from scripts import agenda
+
+    validate_db(db)
     out_dir = Path(out_dir)
-    (out_dir / "by_item").mkdir(parents=True, exist_ok=True)
-    (out_dir / "by_meeting").mkdir(parents=True, exist_ok=True)
+    for sub in ("by_agenda", "by_meeting"):
+        shutil.rmtree(out_dir / sub, ignore_errors=True)  # 사라진 섹션·회의 파일이 남지 않도록 매번 새로 만듭니다
+        (out_dir / sub).mkdir(parents=True, exist_ok=True)
+    shutil.rmtree(out_dir / "by_item", ignore_errors=True)  # 예전 아이템별 리포트
     (out_dir / "README.md").write_text(render_dashboard(config, db), encoding="utf-8")
-    for item in config["items"]:
-        (out_dir / "by_item" / f"{item['id']}.md").write_text(render_item_report(item, db), encoding="utf-8")
+    if db["entries"]:
+        index = agenda.build_index(db)
+        for sec in all_sections(index):
+            (out_dir / "by_agenda" / f"{slug(sec['title'])}.md").write_text(
+                render_section_report(sec, index, db), encoding="utf-8")
     for meeting in _meetings(db):
         (out_dir / "by_meeting" / f"{meeting_slug(meeting)}.md").write_text(
             render_meeting_report(meeting, config, db), encoding="utf-8")

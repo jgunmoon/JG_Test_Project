@@ -72,7 +72,7 @@ def main():
         path = ff.download_chair_notes(p["folder"], p["name"], p["url"])
         agenda_csv = ff.fetch_agenda_csv(p["folder"])
         agenda = parse_agenda_csv(agenda_csv) if agenda_csv else None
-        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], config["items"], agenda=agenda)
+        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda)
         for w in warnings:
             print(f"  경고: {w}")
         merge_meeting(db, p["meeting"], entries, {

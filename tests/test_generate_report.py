@@ -5,33 +5,27 @@ import pytest
 
 from scripts import generate_report as gr
 
-CONFIG = {
-    "items": [
-        {"id": "csi_prediction", "name": "AI/ML CSI Prediction", "release": "Rel-19"},
-        {"id": "beam_management", "name": "AI/ML Beam Management", "release": "Rel-19"},
-    ]
-}
+CONFIG = {}
+SIXGR = [("10", "Rel-20 Study of 6GR"), ("10.5", "Multi-antenna system")]
 
 
-def entry(meeting, item, n, type_="Agreement", text="sample text", ffs=()):
+def entry(meeting, n, leaf=("10.5.2", "MIMO operation"), type_="Agreement", text="sample text", ffs=(), top=None):
+    path = (top or SIXGR) + [leaf]
     return {
-        "id": f"{meeting}:{item}:{n:03d}",
+        "id": f"{meeting}:{leaf[0]}:{n:03d}",
         "meeting": meeting,
-        "item": item,
-        "agenda_item": "9.9.9",
+        "agenda_item": leaf[0],
+        "agenda_title": leaf[1],
+        "agenda_path": [{"number": a, "title": b} for a, b in path],
         "type": type_,
         "text": text,
         "ffs": list(ffs),
-        "source": {
-            "doc": f"R1-TEST{n:03d}",
-            "kind": "chairman_note",
-            "url": f"https://example.invalid/{meeting}/{n}",
-        },
+        "source": {"doc": f"R1-TEST{n:03d}", "kind": "chairman_note", "url": f"https://example.invalid/{meeting}/{n}"},
     }
 
 
-def make_db(*entries, meetings=None):
-    return {"schema_version": 1, "meetings": meetings or {}, "entries": list(entries)}
+def make_db(*entries):
+    return {"schema_version": 1, "meetings": {}, "entries": list(entries)}
 
 
 def test_meeting_sort_order_handles_bis():
@@ -40,97 +34,96 @@ def test_meeting_sort_order_handles_bis():
 
 
 def test_validate_rejects_entry_without_source_doc():
-    bad = entry("RAN1#118", "csi_prediction", 1)
+    bad = entry("RAN1#118", 1)
     bad["source"]["doc"] = ""
     with pytest.raises(gr.ValidationError, match="source.doc"):
-        gr.validate_db(make_db(bad), CONFIG)
+        gr.validate_db(make_db(bad))
 
 
-def test_validate_rejects_unknown_type_and_item():
+def test_validate_rejects_unknown_type_and_missing_agenda_path():
     with pytest.raises(gr.ValidationError, match="type"):
-        gr.validate_db(make_db(entry("RAN1#118", "csi_prediction", 1, type_="Proposal")), CONFIG)
-    with pytest.raises(gr.ValidationError, match="item"):
-        gr.validate_db(make_db(entry("RAN1#118", "unknown_item", 1)), CONFIG)
+        gr.validate_db(make_db(entry("RAN1#118", 1, type_="Proposal")))
+    bad = entry("RAN1#118", 1)
+    bad["agenda_path"] = []
+    with pytest.raises(gr.ValidationError, match="agenda_path"):
+        gr.validate_db(make_db(bad))
 
 
 def test_validate_rejects_duplicate_ids():
-    e = entry("RAN1#118", "csi_prediction", 1)
+    e = entry("RAN1#118", 1)
     with pytest.raises(gr.ValidationError, match="duplicate"):
-        gr.validate_db(make_db(e, dict(e)), CONFIG)
+        gr.validate_db(make_db(e, dict(e)))
 
 
-def test_item_report_is_chronological_and_cites_source():
-    db = make_db(
-        entry("RAN1#118", "csi_prediction", 2, text="later"),
-        entry("RAN1#117", "csi_prediction", 1, text="earlier"),
-    )
-    md = gr.render_item_report(CONFIG["items"][0], db)
+def test_section_report_follows_agenda_tree_and_cites_sources(tmp_path):
+    db = make_db(entry("RAN1#117", 1, text="earlier"), entry("RAN1#118", 1, text="later"),
+                 entry("RAN1#118", 1, leaf=("8.1", "Maintenance on AI/ML"), top=[("8", "Maintenance on Rel-19")]))
+    gr.write_reports(CONFIG, db, tmp_path)
+    md = (tmp_path / "by_agenda" / "rel-20-study-of-6gr.md").read_text()
+    assert md.startswith("# 10 Rel-20 Study of 6GR")
+    assert "### 10.5 Multi-antenna system" in md and "#### 10.5.2 MIMO operation" in md
     assert md.index("earlier") < md.index("later")
     assert "[R1-TEST001](https://example.invalid/RAN1#117/1)" in md
     assert "```mermaid" in md
+    assert (tmp_path / "by_agenda" / "maintenance-on-rel-19.md").exists()
 
 
-def test_item_report_without_entries_says_so():
-    md = gr.render_item_report(CONFIG["items"][1], make_db())
-    assert "아직 기록된 합의가 없습니다" in md
+def test_number_change_is_shown_and_retired_agenda_listed(tmp_path):
+    db = make_db(entry("RAN1#117", 1, leaf=("10.5.2.4", "Beam management")),
+                 entry("RAN1#118", 1, leaf=("10.5.3.4", "Beam management")),
+                 entry("RAN1#117", 2, leaf=("10.5.0", "General aspects")))
+    gr.write_reports(CONFIG, db, tmp_path)
+    md = (tmp_path / "by_agenda" / "rel-20-study-of-6gr.md").read_text()
+    assert "번호 변경: #117: 10.5.2.4 → #118: 10.5.3.4" in md
+    assert "## 최신 회의에는 없는 Agenda" in md and "10.5.0 General aspects (마지막: RAN1#117)" in md
 
 
-def test_text_with_pipes_and_newlines_does_not_break_table():
-    db = make_db(entry("RAN1#118", "csi_prediction", 1, text="a | b\nc"))
-    md = gr.render_item_report(CONFIG["items"][0], db)
+def test_text_with_pipes_and_newlines_does_not_break_table(tmp_path):
+    gr.write_reports(CONFIG, make_db(entry("RAN1#118", 1, text="a | b\nc")), tmp_path)
+    md = (tmp_path / "by_agenda" / "rel-20-study-of-6gr.md").read_text()
     row = next(l for l in md.splitlines() if "R1-TEST001" in l)
     assert "a \\| b<br>c" in row
 
 
-def test_dashboard_highlights_latest_meeting_delta():
-    db = make_db(
-        entry("RAN1#117", "csi_prediction", 1),
-        entry("RAN1#118", "csi_prediction", 2),
-        entry("RAN1#118", "csi_prediction", 3, type_="Working Assumption", ffs=["FFS: a", "FFS: b"]),
-    )
+def test_dashboard_lists_sections_with_latest_counts():
+    db = make_db(entry("RAN1#117", 1), entry("RAN1#118", 1),
+                 entry("RAN1#118", 2, type_="Working Assumption", ffs=["FFS: a", "FFS: b"]))
     md = gr.render_dashboard(CONFIG, db)
     assert "최신 회의: RAN1#118" in md
-    row = next(l for l in md.splitlines() if "AI/ML CSI Prediction" in l)
-    # 최신 회의: Agreement 1건, Working Assumption 1건, 미결 FFS 2건 / 누적 결정 3건
-    assert "| 1 | 1 | 2 | 3 |" in row
+    row = next(l for l in md.splitlines() if l.startswith("| 10 Rel-20 Study of 6GR") and "보기" in l)
+    assert "| 1 | 1 | 0 | 2 | 3 |" in row                       # Agreement, WA, Conclusion, 미결 FFS, 누적
+    assert "(by_agenda/rel-20-study-of-6gr.md)" in row
 
 
-def test_source_shows_chair_notes_tdoc_and_discussion():
-    e = entry("RAN1#118", "csi_prediction", 1)
-    e["source"].update(tdoc="R1-2600001", tdoc_url="https://example.invalid/R1-2600001.zip", discussion="118-X")
-    md = gr.render_item_report(CONFIG["items"][0], make_db(e))
-    assert "[R1-2600001](https://example.invalid/R1-2600001.zip)" in md
-    assert "`[118-X]`" in md
+def test_delta_section_in_dashboard():
+    prev = entry("RAN1#117", 1, ffs=["FFS: maximum number of DCI container sizes per UE"])
+    cur = entry("RAN1#118", 2, text="Maximum number of DCI container sizes per UE is 4")
+    wa = entry("RAN1#118", 3, text="Confirm the following working assumption: X")
+    dash = gr.render_dashboard(CONFIG, make_db(prev, cur, wa))
+    assert "## 직전 회의 대비 (RAN1#117 → RAN1#118)" in dash
+    row = next(l for l in dash.splitlines() if l.startswith("| 10 Rel-20 Study of 6GR") and "보기" not in l)
+    assert "| 2 | 1 | 1 | 1 |" in row   # 신규 결정, WA 확정, 직전 FFS, 후속 후보
 
 
-def test_write_reports_creates_files(tmp_path):
-    db = make_db(entry("RAN1#118bis", "csi_prediction", 1))
-    gr.write_reports(CONFIG, db, tmp_path)
-    assert (tmp_path / "README.md").exists()
-    assert (tmp_path / "by_item" / "csi_prediction.md").exists()
-    assert (tmp_path / "by_item" / "beam_management.md").exists()
-    assert (tmp_path / "by_meeting" / "ran1_118bis.md").exists()
+def test_meeting_report_groups_by_agenda_number():
+    db = make_db(entry("RAN1#118", 1, leaf=("10.5.3", "CSI")), entry("RAN1#118", 1, leaf=("10.5.2", "MIMO")))
+    md = gr.render_meeting_report("RAN1#118", CONFIG, db)
+    assert md.index("## 10.5.2 MIMO") < md.index("## 10.5.3 CSI")
+    assert "10 Rel-20 Study of 6GR › 10.5 Multi-antenna system" in md
+
+
+def test_write_reports_removes_stale_files(tmp_path):
+    (tmp_path / "by_item").mkdir()
+    (tmp_path / "by_item" / "old.md").write_text("x")
+    gr.write_reports(CONFIG, make_db(entry("RAN1#118", 1)), tmp_path)
+    assert not (tmp_path / "by_item").exists()
+    assert (tmp_path / "README.md").exists() and (tmp_path / "index.html").exists()
+    assert (tmp_path / "by_meeting" / "ran1_118.md").exists()
 
 
 def test_output_is_deterministic(tmp_path):
-    db = make_db(entry("RAN1#118", "csi_prediction", 1))
+    db = make_db(entry("RAN1#118", 1))
     gr.write_reports(CONFIG, db, tmp_path / "a")
     gr.write_reports(CONFIG, json.loads(json.dumps(db)), tmp_path / "b")
-    for f in (tmp_path / "a").rglob("*.md"):
+    for f in (tmp_path / "a").rglob("*.*"):
         assert f.read_text() == (tmp_path / "b" / f.relative_to(tmp_path / "a")).read_text()
-
-
-def test_delta_sections_in_dashboard_and_item_report():
-    prev = entry("RAN1#117", "csi_prediction", 1, ffs=["FFS: maximum number of DCI container sizes per UE"])
-    cur = entry("RAN1#118", "csi_prediction", 2, text="Maximum number of DCI container sizes per UE is 4")
-    wa = entry("RAN1#118", "csi_prediction", 3, text="Confirm the following working assumption: X")
-    for e in (prev, cur, wa):
-        e["agenda_title"] = "DCI"
-    db = make_db(prev, cur, wa)
-    dash = gr.render_dashboard(CONFIG, db)
-    assert "## 직전 회의 대비 (RAN1#117 → RAN1#118)" in dash
-    row = next(l for l in dash.splitlines() if l.startswith("| AI/ML CSI Prediction") and "→" not in l and "보기" not in l)
-    assert "| 2 | 1 | 1 | 1 |" in row   # 신규 결정, WA 확정, 직전 FFS, 후속 후보
-    item = gr.render_item_report(CONFIG["items"][0], db)
-    assert "## 회의 간 변화 (Delta)" in item
-    assert "후속 결정 후보" in item and "R1-TEST001" in item and "R1-TEST002" in item

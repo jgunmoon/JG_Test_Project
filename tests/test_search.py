@@ -5,13 +5,13 @@ import re
 from scripts import generate_report as gr
 from scripts import render_html as rh
 
-CONFIG = {"items": [{"id": "bm", "name": "Beam", "release": "Rel-20"}],
-          "search_presets": ["DMRS", "PT-RS"]}
+CONFIG = {"search_presets": ["DMRS", "PT-RS"]}
 
 
 def e(meeting, n, text):
-    return {"id": f"{meeting}:10.5.2.2:{n:03d}", "meeting": meeting, "item": "bm", "agenda_item": "10.5.2.2",
+    return {"id": f"{meeting}:10.5.2.2:{n:03d}", "meeting": meeting, "agenda_item": "10.5.2.2",
             "agenda_title": "DL shared", "type": "Agreement", "text": text, "ffs": [],
+            "agenda_path": [{"number": "10", "title": "Rel-20 Study of 6GR"}, {"number": "10.5.2.2", "title": "DL shared"}],
             "source": {"doc": "Chair notes", "kind": "chairman_note", "url": f"https://ftp.invalid/{meeting}",
                        "tdoc": "R1-2600001", "tdoc_url": "https://ftp.invalid/R1-2600001.zip"}}
 
@@ -33,7 +33,8 @@ def test_all_decisions_are_embedded_for_in_browser_search():
     first = data["entries"][0]
     assert first["meeting"] == "RAN1#125" and first["text"] == "Support 6GR DL DMRS type 1"
     assert first["source"]["tdoc"] == "R1-2600001"
-    assert data["items"] == {"bm": "Beam"}
+    assert data["sections"] == [["rel-20 study of 6gr", "10 Rel-20 Study of 6GR"]]
+    assert first["section"] == "rel-20 study of 6gr" and first["key"] == "rel-20 study of 6gr || dl shared"
     assert data["meetings"] == ["RAN1#125", "RAN1#126"]
 
 
@@ -46,12 +47,11 @@ def test_embedded_text_cannot_close_the_script_tag():
 
 def test_search_controls_and_presets():
     page = rh.render_html(CONFIG, DB)
-    for el in ('id="q"', 'id="f-item"', 'id="f-meeting"', 'id="f-type"', 'id="f-word"', 'id="results"'):
+    for el in ('id="q"', 'id="f-section"', 'id="f-meeting"', 'id="f-type"', 'id="f-word"', 'id="results"'):
         assert el in page
     assert 'data-preset="DMRS"' in page and 'data-preset="PT-RS"' in page
 
 
-def test_topic_reports_are_no_longer_written(tmp_path):
+def test_readme_points_to_search(tmp_path):
     gr.write_reports(CONFIG, DB, tmp_path)
-    assert not (tmp_path / "by_topic").exists()
     assert "검색" in (tmp_path / "README.md").read_text()

@@ -20,7 +20,8 @@ description: 3GPP RAN1 FTP 문서를 기반으로 6G(Rel-18/19 AI/ML 및 Rel-20 
    - 개별 벤더 기고문(TDoc)의 단순 제안(Proposal)과 실제 회의에서 채택된 합의(Agreement)를 혼동하지 않도록, 각 Agenda Item의 **Chairman's Note(의장단 요약록)**를 최우선으로 파싱하여 최종 합의 여부를 확정합니다.
 
 4. **공용 사용을 위한 모듈화 (Shared Configuration & Dashboard)**
-   - 팀원 누구나 자신이 담당하는 PHY 세부 아이템(예: AI/ML Air Interface, CSI Prediction, Beam Management, Positioning, ISAC, 6G Study Item 등)을 코드 수정 없이 추가·열람할 수 있도록 **설정(`config/`), 누적 데이터(`data/`), 공용 리포트 뷰(`reports/`)를 분리**하여 관리합니다.
+   - 팀원 누구나 자신이 담당하는 PHY 세부 주제(예: AI/ML Air Interface, CSI, Beam Management, ISAC, 6GR 등)를 코드 수정 없이 찾아볼 수 있도록 **설정(`config/`), 누적 데이터(`data/`), 공용 리포트 뷰(`reports/`)를 분리**하여 관리합니다.
+   - 결정은 별도 아이템 분류 없이 **공식 Agenda 구조 그대로** 보여줍니다 (모호함 없이 원문 목차와 대조 가능). 관심 주제는 Agenda 목차와 키워드 검색으로 찾습니다.
 
 5. **한눈에 보이는 시각화 (Table & Diagram 필수)**
    - 회의별 Agreement의 진화 과정을 한눈에 비교할 수 있는 **누적 히스토리 마크다운 표(Table)**를 필수로 생성합니다.
@@ -34,17 +35,18 @@ description: 3GPP RAN1 FTP 문서를 기반으로 6G(Rel-18/19 AI/ML 및 Rel-20 
 ran1-6g-tracker/
 ├── CLAUDE.md                  # 에이전트 시스템 지침 (현재 문서)
 ├── config/
-│   └── tracked_items.yaml     # [공용 설정] 추적할 PHY Agenda Item, 키워드, 회의 일정 설정
+│   └── tracked_items.yaml     # [공용 설정] 추적 시작 회의, 리포트 링크 주소, 추천 검색어
 ├── scripts/
 │   ├── check_schedule.py      # 3GPP 회의 일정 확인 및 '회의 종료 다음 날' 트리거 판별
 │   ├── fetch_ftp_docs.py      # 3GPP FTP에서 최신 Chairman's Note 및 요약 TDoc 자동 다운로드
 │   ├── parse_agreements.py    # 문서 내 Agreement / Working Assumption / FFS 파싱 및 Delta 추출
 │   └── generate_report.py     # 누적 DB를 기반으로 마크다운 표/다이어그램 리포트 자동 생성
 ├── data/
-│   └── agreements_db.json     # 회의별/아이템별 Agreement 누적 데이터베이스 (Single Source of Truth)
+│   └── agreements_db.json     # 회의별/Agenda별 Agreement 누적 데이터베이스 (Single Source of Truth)
 ├── reports/
-│   ├── README.md              # [공용 메인 대시보드] 최신 회의 핵심 요약 및 아이템별 바로가기
-│   ├── by_item/               # PHY 주요 아이템별 누적 타임라인 리포트 (예: csi_prediction.md)
+│   ├── README.md              # [공용 메인 대시보드] 최신 회의 핵심 요약 및 섹션별 바로가기
+│   ├── index.html             # HTML 대시보드 (Agenda 목차, 키워드 검색, Delta) — GitHub Pages로 게시
+│   ├── by_agenda/             # 공식 Agenda 최상위 섹션별 누적 리포트 (예: rel-20-study-of-6gr.md)
 │   └── by_meeting/            # 각 회의별(RAN1 #N) 전체 결과 요약 리포트 (예: ran1_118.md)
 └── .github/workflows/
     └── auto_tracker.yml       # 매일/매주 스케줄링 실행(GitHub Actions) 및 리포트 자동 업데이트
@@ -81,6 +83,8 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
 - `reports/index.html`은 팀 공용 HTML 대시보드입니다 (`scripts/render_html.py`). 상세 리포트 링크는 config의 `report_base_url` 기준입니다.
 - HTML 대시보드의 '결정 검색'은 전체 결정을 페이지에 넣어 브라우저에서 키워드로 찾습니다 (서버 불필요).
   추천 검색어 버튼은 config의 `search_presets`에 적습니다. 검색 스크립트(`SCRIPT`)는 raw 문자열이므로 JS 문법 그대로 씁니다.
-- Delta(직전 회의 대비)는 `scripts/delta.py`가 DB에서 계산합니다. FFS 후속 결정은 키워드 매칭 '후보'로만 표시하고 해소됐다고 단정하지 않습니다.
+- 회의 간 같은 Agenda는 번호가 아니라 '섹션 제목 + Agenda 제목'으로 이어 붙입니다 (`scripts/agenda.py`).
+  번호가 바뀌면 함께 표시하고, 제목이 바뀐 Agenda는 억지로 잇지 않고 '최신 회의에는 없는 Agenda'로 따로 보여줍니다.
+- Delta(직전 회의 대비)는 `scripts/delta.py`가 섹션별로 DB에서 계산합니다. FFS 후속 결정은 키워드 매칭 '후보'로만 표시하고 해소됐다고 단정하지 않습니다.
 - `reports/` 아래 파일은 생성물입니다. 직접 수정하지 말고 DB나 설정을 고친 뒤 다시 생성합니다.
 - DB 스키마와 필수 필드(출처 문서 번호, FTP 링크)는 `data/SCHEMA.md`를 따릅니다.

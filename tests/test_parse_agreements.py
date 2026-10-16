@@ -6,11 +6,6 @@ from docx.oxml.ns import qn
 
 from scripts import parse_agreements as pa
 
-ITEMS = [
-    {"id": "aiml_air_interface", "name": "AI/ML", "keywords": ["Machine Learning"]},
-    {"id": "beam_management", "name": "BM", "keywords": ["Beam management"]},
-    {"id": "sixg_study", "name": "6GR", "keywords": ["6GR"]},
-]
 URL = "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_999/Inbox/Chair_notes/cn.docx"
 
 
@@ -89,11 +84,11 @@ def sample(tmp_path):
 
 
 def parse(path):
-    return pa.parse_chair_notes(path, "RAN1#999", URL, ITEMS)[0]
+    return pa.parse_chair_notes(path, "RAN1#999", URL)[0]
 
 
 def test_warns_when_fl_summary_agenda_number_disagrees(sample):
-    _, warnings = pa.parse_chair_notes(sample, "RAN1#999", URL, ITEMS)
+    _, warnings = pa.parse_chair_notes(sample, "RAN1#999", URL)
     assert len(warnings) == 1
     assert "R1-2600005" in warnings[0] and "10.9.9" in warnings[0] and "10.2.1.1" in warnings[0]
 
@@ -106,7 +101,7 @@ def test_agenda_numbers_follow_word_numbering_levels(sample):
 
 def test_extracts_only_decisions_with_types(sample):
     types = [e["type"] for e in parse(sample)]
-    assert types == ["Agreement", "Agreement", "Working Assumption", "Conclusion"]
+    assert types == ["Agreement", "Agreement", "Working Assumption", "Conclusion", "Agreement"]
 
 
 def test_block_text_keeps_bullets_and_stops_at_next_marker(sample):
@@ -125,15 +120,23 @@ def test_source_cites_chair_notes_and_fl_summary(sample):
     assert entries[2]["source"]["tdoc"] == "R1-2600003"
 
 
-def test_most_specific_item_wins(sample):
+def test_agenda_path_records_every_level_with_number_and_title(sample):
+    bm = parse(sample)[3]
+    assert bm["agenda_path"] == [
+        {"number": "10", "title": "Rel-20 Study of 6GR"},
+        {"number": "10.2", "title": "Multi-antenna system"},
+        {"number": "10.2.1", "title": "CSI acquisition and report"},
+        {"number": "10.2.1.1", "title": "Beam management for downlink and uplink"},
+    ]
+    assert bm["agenda_title"] == "Beam management for downlink and uplink"
+    assert "item" not in bm
+
+
+def test_decisions_under_every_agenda_are_kept_but_quotes_and_observations_are_not(sample):
     entries = parse(sample)
-    assert {e["item"] for e in entries[:3]} == {"aiml_air_interface"}
-    assert entries[3]["item"] == "beam_management"
-
-
-def test_untracked_sections_and_quoted_old_agreements_are_skipped(sample):
-    texts = " ".join(e["text"] for e in parse(sample))
-    assert "Not tracked" not in texts
+    texts = " ".join(e["text"] for e in entries)
+    assert "Not tracked" in texts                       # 관심 분야 구분 없이 모든 Agenda의 결정을 기록
+    assert entries[-1]["agenda_item"] == "11"
     assert "Old text" not in texts
     assert "Something observed" not in texts
 
@@ -197,7 +200,7 @@ def test_official_agenda_numbers_override_word_numbering(tmp_path):
         "10.5.1": "MIMO operation",
         "10.5.1.4": "Beam management for downlink and uplink",
     }
-    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS, agenda=agenda)
+    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, agenda=agenda)
     assert entries[0]["agenda_item"] == "10.5.1.4"
     assert entries[0]["id"] == "RAN1#999:10.5.1.4:001"
     assert warnings == []
@@ -209,7 +212,7 @@ def test_heading_missing_from_official_agenda_falls_back_with_warning(tmp_path):
     d.heading("Unlisted topic", 1)
     d.para("Agreement")
     d.para("Text")
-    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS,
+    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL,
                                              agenda={"10": "Rel-20 Study of 6GR"})
     assert entries[0]["agenda_item"] == "10.1"
     assert any("Unlisted topic" in w for w in warnings)
@@ -228,18 +231,6 @@ def test_title_wording_difference_is_fine_when_number_exists_in_agenda(tmp_path)
     d.para("Agreement")
     d.para("Text")
     agenda = {"1": "Rel-20 Study of 6GR", "1.1": "Integrated Sensing And Communication (ISAC)"}
-    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS, agenda=agenda)
+    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, agenda=agenda)
     assert entries[0]["agenda_item"] == "1.1"
     assert warnings == []
-
-
-def test_priority_item_wins_over_deeper_match():
-    # 실제 RAN1#122: 8 'Maintenance on Rel-19 ...' > 8.1 ... > 8.1.1 'Specification support for beam management'
-    items = [
-        {"id": "beam_management", "keywords": ["beam management"]},
-        {"id": "rel19_maintenance", "keywords": ["Maintenance on Rel-19"], "priority": True},
-    ]
-    path = ["Maintenance on Rel-19 NR and E-UTRA", "Maintenance on AI/ML", "Specification support for beam management"]
-    assert pa.match_item(path, items)["id"] == "rel19_maintenance"
-    # 우선 아이템이 일치하지 않는 곳에서는 기존 규칙(더 구체적인 제목) 그대로
-    assert pa.match_item(["Rel-20 Study of 6GR", "Beam management"], items)["id"] == "beam_management"

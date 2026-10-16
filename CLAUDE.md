@@ -55,8 +55,14 @@ ran1-6g-tracker/
 ```bash
 pip install -r requirements.txt        # 의존성 설치
 python -m pytest -q                    # 테스트
+python -m scripts.parse_agreements <chair_notes.docx> --folder TSGR1_126 --url <FTP 원문 URL>
+                                       # Chair notes → data/agreements_db.json (그 회의 항목만 교체)
 python -m scripts.generate_report      # data/agreements_db.json → reports/ 재생성
 ```
+
+- 3GPP 서버(Cloudflare)는 기본 curl/requests User-Agent를 403으로 거부합니다. 브라우저 User-Agent를 보내야 합니다.
+- 회의 종료본 Chair notes는 `TSGR1_<번호>/Inbox/Chair_notes/` 의 `Chair notes RAN1#<번호>_eom*.docx` 입니다.
+- 내려받은 원본 문서는 `downloads/`(gitignore)나 임시 폴더에 두고 커밋하지 않습니다.
 
 - `reports/` 아래 파일은 생성물입니다. 직접 수정하지 말고 DB나 설정을 고친 뒤 다시 생성합니다.
 - DB 스키마와 필수 필드(출처 문서 번호, FTP 링크)는 `data/SCHEMA.md`를 따릅니다.

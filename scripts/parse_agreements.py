@@ -1,0 +1,241 @@
+"""Chair notes(.docx)에서 Agreement / Working Assumption / Conclusion을 추출해 DB에 반영합니다.
+
+    python -m scripts.parse_agreements <chair_notes.docx> --folder TSGR1_126 --url <FTP 원문 URL>
+
+Chair notes 구조 (RAN1#126 기준으로 확인):
+- Agenda 번호는 제목 텍스트에 없고 Word 자동 번호의 레벨(ilvl)로만 표현됩니다.
+  Heading 스타일 이름(Heading 1~4)은 실제 계층과 다를 수 있어 ilvl을 기준으로 삼습니다.
+- 구간마다 다른 번호 목록(numId)을 쓰지만 Agenda 번호는 문서 전체에서 이어지므로,
+  번호가 붙은 제목을 모두 하나의 계층으로 셉니다. 계산 결과는 FL summary 제목에 적힌
+  Agenda 번호와 대조해 어긋나면 경고합니다.
+- 각 결정은 'Agreement:' 같은 표시 줄로 시작하고, 다음 표시 줄 / TDoc 줄 / 제목에서 끝납니다.
+- 결정 바로 앞의 굵은 TDoc 줄(주로 FL summary)이 그 결정의 근거 문서입니다.
+- FFS는 별도 결정이 아니라 결정 안의 하위 줄로 들어 있습니다.
+"""
+import argparse
+import json
+import re
+from collections import Counter
+from pathlib import Path
+from urllib.parse import unquote
+
+import docx
+import yaml
+from docx.oxml.ns import qn
+from docx.table import Table
+from docx.text.paragraph import Paragraph
+
+from scripts.generate_report import ROOT, meeting_sort_key
+
+MARKER = re.compile(
+    r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*:?", re.I)
+END_MARKER = re.compile(r"(observations?|decision)\s*:?", re.I)
+TDOC = re.compile(r"R1-\d{7}\b")
+# 'FL summary 1 on 9.1.1', 'Summary of proposals for 9.1.1' 등. TS 번호(38.214)는 걸리지 않도록 자릿수를 제한합니다.
+# 6GR 등에서 합의를 묶는 이메일 토론 태그, 예: '[126-R20-6GR-Beam management] Email discussion ...'
+DISCUSSION = re.compile(r"\[(\d+[^\]]*)\]\s*Email discussion", re.I)
+SUMMARY_AGENDA = re.compile(r"summary\b.*?\b(?:on|for)\s+(?:AI\s+)?(\d{1,2}(?:\.\d{1,2})+)\b", re.I)
+TYPE_NAMES = {"agreement": "Agreement", "conclusion": "Conclusion", "working assumption": "Working Assumption"}
+
+
+def meeting_id_from_folder(folder):
+    m = re.fullmatch(r"TSGR1_(\d+)(b?)(?:[-_](e))?", folder)
+    if not m:
+        raise ValueError(f"unexpected meeting folder name: {folder!r}")
+    return f"RAN1#{m.group(1)}{'bis' if m.group(2) else ''}{'-e' if m.group(3) else ''}"
+
+
+def _num_pr(paragraph):
+    """문단 자체 또는 스타일 상속 체인에서 (numId, ilvl)을 찾습니다."""
+    sources = [paragraph._p.pPr]
+    style = paragraph.style
+    while style is not None:
+        sources.append(style.element.pPr)
+        style = style.base_style
+    for ppr in sources:
+        if ppr is not None and ppr.numPr is not None:
+            num_id = ppr.numPr.find(qn("w:numId"))
+            ilvl = ppr.numPr.find(qn("w:ilvl"))
+            return (num_id.get(qn("w:val")) if num_id is not None else None,
+                    int(ilvl.get(qn("w:val"))) if ilvl is not None else None)
+    return None
+
+
+def _iter_blocks(document):
+    """본문의 문단과 표를 문서 순서대로 돌려줍니다."""
+    for child in document.element.body.iterchildren():
+        if child.tag == qn("w:p"):
+            yield Paragraph(child, document)
+        elif child.tag == qn("w:tbl"):
+            yield Table(child, document)
+
+
+def _is_heading(paragraph):
+    return paragraph.style.name.startswith("Heading")
+
+
+def _agenda_level(paragraph):
+    """Agenda 제목이면 계층 레벨(0부터)을, 아니면 None을 돌려줍니다."""
+    num = _num_pr(paragraph) if _is_heading(paragraph) else None
+    if not num:
+        return None
+    level = num[1] or 0
+    style_level = re.search(r"\d+", paragraph.style.name)
+    # 최상위 Agenda는 항상 Heading 1입니다. 'Heading 2'인데 번호 레벨이 0인 제목(예: Call for IPR)은
+    # 잘못 매겨진 번호라 Agenda로 보지 않습니다. (Heading 4에 레벨 2처럼 스타일보다 얕은 경우는 정상)
+    if level == 0 and style_level and int(style_level.group(0)) > 1:
+        return None
+    return level
+
+
+def _starts_bold(paragraph):
+    # 결정의 근거가 되는 TDoc 줄은 문서 번호 부분만 굵게 표시되어 있습니다 (나머지 제목·회사명은 일반).
+    runs = [r for r in paragraph.runs if r.text.strip()]
+    return bool(runs) and bool(runs[0].bold)
+
+
+def _table_lines(table):
+    lines = []
+    for row in table.rows:
+        cells = [" ".join(c.text.split()) for c in row.cells]
+        lines.append("| " + " | ".join(cells) + " |")
+    return lines
+
+
+def match_item(heading_path, items):
+    """제목 경로에서 키워드가 가장 깊은 수준에서 일치하는 아이템을 고릅니다."""
+    best, best_depth = None, -1
+    for item in items:
+        for depth, title in enumerate(heading_path):
+            if title and any(k.lower() in title.lower() for k in item.get("keywords", [])):
+                if depth > best_depth:
+                    best, best_depth = item, depth
+    return best
+
+
+def parse_chair_notes(path, meeting, source_url, items):
+    document = docx.Document(str(path))
+    meeting_base = re.match(r"(.*/WG1_RL1/[^/]+/)", source_url)
+    doc_name = Path(unquote(source_url.rsplit("/", 1)[-1])).stem
+
+    entries, warnings, per_agenda = [], [], Counter()
+    counters, titles = [], []
+    tdoc = discussion = None
+    block = None  # {"type", "lines", "ffs", "skip"}
+
+    def close():
+        nonlocal block
+        if block and not block["skip"] and block["lines"]:
+            item = match_item(titles, items)
+            if item:
+                agenda = ".".join(str(c) for c in counters)
+                per_agenda[agenda] += 1
+                source = {"doc": doc_name, "kind": "chairman_note", "url": source_url}
+                if discussion:
+                    source["discussion"] = discussion
+                if tdoc:
+                    source["tdoc"] = tdoc
+                    if meeting_base:
+                        source["tdoc_url"] = f"{meeting_base.group(1)}Docs/{tdoc}.zip"
+                entries.append({
+                    "id": f"{meeting}:{agenda}:{per_agenda[agenda]:03d}",
+                    "meeting": meeting,
+                    "item": item["id"],
+                    "agenda_item": agenda,
+                    "agenda_title": titles[-1] if titles else "",
+                    "type": block["type"],
+                    "text": "\n".join(block["lines"]),
+                    "ffs": block["ffs"],
+                    "source": source,
+                })
+        block = None
+
+    for b in _iter_blocks(document):
+        if isinstance(b, Table):
+            if block:
+                block["lines"].extend(_table_lines(b))
+            continue
+
+        text = b.text.strip()
+        level = _agenda_level(b)
+        if level is not None:
+            close()
+            counters = (counters + [0] * (level + 1))[:level + 1]
+            counters[level] += 1
+            titles = (titles + [""] * (level + 1))[:level + 1]
+            titles[level] = text
+            tdoc = discussion = None
+            continue
+        if _is_heading(b) or not text:
+            continue
+
+        marker = MARKER.fullmatch(text)
+        if marker:
+            close()
+            kind = re.sub(r"s$", "", marker.group("kind").lower())
+            # 'Agreement (RAN1#124bis)'처럼 이전 회의 합의를 인용한 것은 신규 결정이 아닙니다.
+            block = {"type": TYPE_NAMES[kind], "lines": [], "ffs": [], "skip": bool(marker.group("ref"))}
+            continue
+        if TDOC.match(text) or END_MARKER.fullmatch(text):
+            close()
+            if TDOC.match(text):
+                stated = SUMMARY_AGENDA.search(text)
+                computed = ".".join(str(c) for c in counters)
+                warning = f"{TDOC.match(text).group(0)}: 제목의 Agenda {stated.group(1)} ≠ 계산값 {computed}" if stated else None
+                if stated and stated.group(1) != computed and warning not in warnings:
+                    warnings.append(warning)
+                if _starts_bold(b):
+                    tdoc = TDOC.match(text).group(0)
+            continue
+
+        tag = DISCUSSION.match(text)
+        if tag:
+            close()
+            discussion = tag.group(1)
+            continue
+
+        if block:
+            num = _num_pr(b)
+            if num:
+                line = "  " * (num[1] or 0) + "- " + text
+            else:
+                line = text
+            block["lines"].append(line)
+            if text.upper().startswith("FFS"):
+                block["ffs"].append(text)
+    close()
+    return entries, warnings
+
+
+def merge_meeting(db, meeting, entries, meta):
+    """해당 회의의 기존 항목을 새 결과로 교체합니다 (같은 문서를 다시 돌려도 결과가 같음)."""
+    kept = [e for e in db["entries"] if e["meeting"] != meeting]
+    db["entries"] = sorted(kept + list(entries), key=lambda e: meeting_sort_key(e["meeting"]))
+    db["meetings"][meeting] = meta
+    db["meetings"] = dict(sorted(db["meetings"].items(), key=lambda kv: meeting_sort_key(kv[0])))
+    return db
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("docx", type=Path)
+    ap.add_argument("--folder", required=True, help="FTP 회의 폴더 이름 (예: TSGR1_126)")
+    ap.add_argument("--url", required=True, help="Chair notes 원문의 FTP URL")
+    ap.add_argument("--db", type=Path, default=ROOT / "data" / "agreements_db.json")
+    args = ap.parse_args()
+
+    config = yaml.safe_load((ROOT / "config" / "tracked_items.yaml").read_text(encoding="utf-8"))
+    meeting = meeting_id_from_folder(args.folder)
+    entries, warnings = parse_chair_notes(args.docx, meeting, args.url, config["items"])
+    for w in warnings:
+        print(f"경고: {w}")
+    db = json.loads(args.db.read_text(encoding="utf-8"))
+    merge_meeting(db, meeting, entries, {"ftp_dir": args.folder, "chair_notes_url": args.url})
+    args.db.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{meeting}: {len(entries)}건 추출 → {args.db}")
+    for item_id, n in Counter(e["item"] for e in entries).most_common():
+        print(f"  {item_id}: {n}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,177 @@
+# 테스트용 문서는 코드로 만든 가상의 Chair notes입니다 (실제 3GPP 합의 내용이 아님).
+import docx
+import pytest
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+
+from scripts import parse_agreements as pa
+
+ITEMS = [
+    {"id": "aiml_air_interface", "name": "AI/ML", "keywords": ["Machine Learning"]},
+    {"id": "beam_management", "name": "BM", "keywords": ["Beam management"]},
+    {"id": "sixg_study", "name": "6GR", "keywords": ["6GR"]},
+]
+URL = "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_999/Inbox/Chair_notes/cn.docx"
+
+
+def _number(paragraph, ilvl, num_id=1):
+    num_pr = OxmlElement("w:numPr")
+    for tag, val in (("w:ilvl", ilvl), ("w:numId", num_id)):
+        el = OxmlElement(tag)
+        el.set(qn("w:val"), str(val))
+        num_pr.append(el)
+    paragraph._p.get_or_add_pPr().append(num_pr)
+
+
+class Doc:
+    def __init__(self):
+        self.d = docx.Document()
+
+    def heading(self, text, ilvl, style="Heading 1", num_id=1):
+        _number(self.d.add_paragraph(text, style=style), ilvl, num_id)
+
+    def para(self, text, bold=False):
+        self.d.add_paragraph().add_run(text).bold = bold
+
+    def tdoc(self, number, rest, bold=False):
+        p = self.d.add_paragraph()
+        p.add_run(number).bold = bold   # 실제 문서처럼 번호 부분만 굵게
+        p.add_run(rest)
+
+    def bullet(self, text, ilvl=0):
+        _number(self.d.add_paragraph(text, style="List Paragraph"), ilvl, num_id=7)
+
+    def save(self, tmp_path):
+        path = tmp_path / "cn.docx"
+        self.d.save(path)
+        return path
+
+
+@pytest.fixture
+def sample(tmp_path):
+    d = Doc()
+    d.heading("Opening", 0)
+    d.heading("Call for IPR", 0, style="Heading 2", num_id=3)  # 번호 레벨이 잘못 매겨진 제목 (무시)
+    for title in [ "Agenda", "Highlights", "Minutes", "LS", "Pre-19 LTE", "Pre-19 NR", "Rel-19"]:
+        d.heading(title, 0)                                   # 1 .. 8
+    d.heading("Release 20 NR", 0)                             # 9
+    d.heading("Artificial Intelligence (AI)/Machine Learning (ML)", 1)  # 9.1
+    d.heading("CSI compression", 2)                           # 9.1.1
+    d.tdoc("R1-2600001", "\tDiscussion on CSI\tVendorA")           # 일반 기고 목록 (무시)
+    d.tdoc("R1-2600002", "\tFL summary 1 on 9.1.1\tVendorB", bold=True)
+    d.para("Agreement:", bold=True)
+    d.para("Support X for inference", bold=True)
+    d.bullet("Option A")
+    d.bullet("FFS: value of N", ilvl=1)
+    d.para("Agreement", bold=True)
+    d.para("Support Y")
+    d.tdoc("R1-2600003", "\tFL summary 2 on 9.1.1\tVendorB", bold=True)
+    d.para("Working assumptions:", bold=True)
+    d.para("Z is used")
+    d.para("Observation:", bold=True)                         # 합의가 아니므로 제외
+    d.para("Something observed")
+    # 실제 문서처럼 구간마다 다른 번호 목록을 써도 Agenda 번호는 이어집니다.
+    d.heading("Rel-20 Study of 6GR", 0, num_id=2)             # 10
+    d.heading("Tasks", 1, num_id=2)                           # 10.1
+    d.heading("Multi-antenna system", 1, num_id=2)            # 10.2
+    d.heading("CSI acquisition and report", 2, style="Heading 3", num_id=4)  # 10.2.1
+    d.heading("Beam management for downlink and uplink", 3, style="Heading 4", num_id=4)  # 10.2.1.1
+    d.tdoc("R1-2600005", "\tFL summary on 10.9.9 BM\tVendorC", bold=True)  # 번호 불일치 → 경고
+    d.tdoc("R1-2600004", "\tFL summary on 10.2.1.1 BM\tVendorC", bold=True)
+    d.para("Conclusion:", bold=True)
+    d.para("No consensus on W")
+    d.para("Agreement (RAN1#124bis)", bold=True)              # 이전 회의 합의 인용 (신규 아님)
+    d.para("Old text")
+    d.heading("Unrelated topic", 0)                           # 11
+    d.para("Agreement:", bold=True)
+    d.para("Not tracked")
+    return d.save(tmp_path)
+
+
+def parse(path):
+    return pa.parse_chair_notes(path, "RAN1#999", URL, ITEMS)[0]
+
+
+def test_warns_when_fl_summary_agenda_number_disagrees(sample):
+    _, warnings = pa.parse_chair_notes(sample, "RAN1#999", URL, ITEMS)
+    assert len(warnings) == 1
+    assert "R1-2600005" in warnings[0] and "10.9.9" in warnings[0] and "10.2.1.1" in warnings[0]
+
+
+def test_agenda_numbers_follow_word_numbering_levels(sample):
+    entries = parse(sample)
+    assert [e["agenda_item"] for e in entries[:3]] == ["9.1.1", "9.1.1", "9.1.1"]
+    assert entries[3]["agenda_item"] == "10.2.1.1"
+
+
+def test_extracts_only_decisions_with_types(sample):
+    types = [e["type"] for e in parse(sample)]
+    assert types == ["Agreement", "Agreement", "Working Assumption", "Conclusion"]
+
+
+def test_block_text_keeps_bullets_and_stops_at_next_marker(sample):
+    first = parse(sample)[0]
+    assert first["text"] == "Support X for inference\n- Option A\n  - FFS: value of N"
+    assert first["ffs"] == ["FFS: value of N"]
+    assert "Support Y" not in first["text"]
+
+
+def test_source_cites_chair_notes_and_fl_summary(sample):
+    entries = parse(sample)
+    assert entries[0]["source"]["url"] == URL
+    assert entries[0]["source"]["kind"] == "chairman_note"
+    assert entries[0]["source"]["tdoc"] == "R1-2600002"
+    assert entries[0]["source"]["tdoc_url"].endswith("/TSGR1_999/Docs/R1-2600002.zip")
+    assert entries[2]["source"]["tdoc"] == "R1-2600003"
+
+
+def test_most_specific_item_wins(sample):
+    entries = parse(sample)
+    assert {e["item"] for e in entries[:3]} == {"aiml_air_interface"}
+    assert entries[3]["item"] == "beam_management"
+
+
+def test_untracked_sections_and_quoted_old_agreements_are_skipped(sample):
+    texts = " ".join(e["text"] for e in parse(sample))
+    assert "Not tracked" not in texts
+    assert "Old text" not in texts
+    assert "Something observed" not in texts
+
+
+def test_ids_are_stable_across_runs(sample):
+    assert [e["id"] for e in parse(sample)] == [e["id"] for e in parse(sample)]
+    assert parse(sample)[0]["id"] == "RAN1#999:9.1.1:001"
+
+
+def test_merge_replaces_only_that_meeting():
+    db = {"schema_version": 1, "meetings": {}, "entries": [
+        {"id": "RAN1#998:1:001", "meeting": "RAN1#998"},
+        {"id": "RAN1#999:1:001", "meeting": "RAN1#999"},
+    ]}
+    new = [{"id": "RAN1#999:2:001", "meeting": "RAN1#999"}]
+    pa.merge_meeting(db, "RAN1#999", new, {"ftp_dir": "TSGR1_999"})
+    assert [e["id"] for e in db["entries"]] == ["RAN1#998:1:001", "RAN1#999:2:001"]
+    assert db["meetings"]["RAN1#999"]["ftp_dir"] == "TSGR1_999"
+
+
+@pytest.mark.parametrize("folder,meeting", [
+    ("TSGR1_126", "RAN1#126"), ("TSGR1_126b", "RAN1#126bis"), ("TSGR1_110b-e", "RAN1#110bis-e"),
+])
+def test_meeting_id_from_ftp_folder(folder, meeting):
+    assert pa.meeting_id_from_folder(folder) == meeting
+
+
+def test_heading_numbered_shallower_than_its_style_is_still_agenda(tmp_path):
+    # 실제 문서의 AIoT 구간: Heading 4에 번호 레벨 2 → 9.1.1 이어야 함
+    d = Doc()
+    for _ in range(9):
+        d.heading("x", 0)
+    d.heading("Artificial Intelligence (AI)/Machine Learning (ML)", 1)
+    d.heading("Sub topic", 2, style="Heading 4")
+    d.para("[126-R20-AI] Email discussion on AI – Moderator")
+    d.para("Agreement")
+    d.para("Text")
+    (e,) = parse(d.save(tmp_path))
+    assert e["agenda_item"] == "9.1.1"
+    assert e["source"]["discussion"] == "126-R20-AI"
+    assert "tdoc" not in e["source"]

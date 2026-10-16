@@ -1,4 +1,4 @@
-# AI/ML Positioning (Rel-19)
+# Positioning (Rel-20)
 
 > 이 파일은 `scripts/generate_report.py`가 자동으로 생성합니다. 직접 수정하지 마세요.
 

@@ -13,7 +13,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-TYPES = ("Agreement", "Working Assumption", "FFS", "Conclusion")
+TYPES = ("Agreement", "Working Assumption", "Conclusion")
 SOURCE_KINDS = ("chairman_note", "tdoc", "tr", "ts")
 GENERATED_NOTE = "> 이 파일은 `scripts/generate_report.py`가 자동으로 생성합니다. 직접 수정하지 마세요."
 
@@ -61,7 +61,12 @@ def _cell(text):
 
 
 def _source_link(source):
-    return f"[{source['doc']}]({source['url']})"
+    parts = [f"[{source['doc']}]({source['url']})"]
+    if source.get("tdoc"):
+        parts.append(f"[{source['tdoc']}]({source['tdoc_url']})" if source.get("tdoc_url") else source["tdoc"])
+    if source.get("discussion"):
+        parts.append(f"`[{source['discussion']}]`")
+    return "<br>".join(parts)
 
 
 def _sorted_entries(entries):
@@ -81,9 +86,10 @@ def render_item_report(item, db):
     by_meeting = defaultdict(Counter)
     for e in entries:
         by_meeting[e["meeting"]][e["type"]] += 1
+        by_meeting[e["meeting"]]["FFS"] += len(e.get("ffs", []))
     lines += ["## 회의별 진행", "", "```mermaid", "timeline", f"    title {item['name']}"]
     for meeting in sorted(by_meeting, key=meeting_sort_key):
-        counts = " : ".join(f"{t} {by_meeting[meeting][t]}" for t in TYPES if by_meeting[meeting][t])
+        counts = " : ".join(f"{t} {by_meeting[meeting][t]}" for t in TYPES + ("FFS",) if by_meeting[meeting][t])
         # '#'은 Mermaid에서 엔티티 코드로 써야 그대로 표시됩니다.
         lines.append(f"    {meeting.replace('#', '#35;')} : {counts}")
     lines += ["```", "", "## 누적 히스토리", "",
@@ -115,13 +121,16 @@ def render_dashboard(config, db):
 
     latest = meetings[-1]
     lines += [f"**최신 회의: {latest}** ([전체 결과](by_meeting/{meeting_slug(latest)}.md))", "",
-              "| 아이템 | 릴리스 | 신규 Agreement | 신규 Working Assumption | 신규 FFS | 누적 | 상세 |",
+              "미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.", "",
+              "| 아이템 | 릴리스 | 신규 Agreement | 신규 Working Assumption | 미결 FFS | 누적 결정 | 상세 |",
               "|---|---|---|---|---|---|---|"]
     for item in config["items"]:
         mine = [e for e in db["entries"] if e["item"] == item["id"]]
-        new = Counter(e["type"] for e in mine if e["meeting"] == latest)
+        latest_mine = [e for e in mine if e["meeting"] == latest]
+        new = Counter(e["type"] for e in latest_mine)
+        ffs = sum(len(e.get("ffs", [])) for e in latest_mine)
         lines.append(f"| {item['name']} | {item.get('release', '')} | {new['Agreement']} "
-                     f"| {new['Working Assumption']} | {new['FFS']} | {len(mine)} "
+                     f"| {new['Working Assumption']} | {ffs} | {len(mine)} "
                      f"| [보기](by_item/{item['id']}.md) |")
     lines += ["", "## 회의별 리포트", ""]
     lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]

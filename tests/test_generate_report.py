@@ -13,7 +13,7 @@ CONFIG = {
 }
 
 
-def entry(meeting, item, n, type_="Agreement", text="sample text"):
+def entry(meeting, item, n, type_="Agreement", text="sample text", ffs=()):
     return {
         "id": f"{meeting}:{item}:{n:03d}",
         "meeting": meeting,
@@ -21,6 +21,7 @@ def entry(meeting, item, n, type_="Agreement", text="sample text"):
         "agenda_item": "9.9.9",
         "type": type_,
         "text": text,
+        "ffs": list(ffs),
         "source": {
             "doc": f"R1-TEST{n:03d}",
             "kind": "chairman_note",
@@ -85,13 +86,21 @@ def test_dashboard_highlights_latest_meeting_delta():
     db = make_db(
         entry("RAN1#117", "csi_prediction", 1),
         entry("RAN1#118", "csi_prediction", 2),
-        entry("RAN1#118", "csi_prediction", 3, type_="FFS"),
+        entry("RAN1#118", "csi_prediction", 3, type_="Working Assumption", ffs=["FFS: a", "FFS: b"]),
     )
     md = gr.render_dashboard(CONFIG, db)
     assert "최신 회의: RAN1#118" in md
     row = next(l for l in md.splitlines() if "AI/ML CSI Prediction" in l)
-    # 최신 회의의 Agreement 1건, FFS 1건, 누적 3건
-    assert "| 1 | 0 | 1 | 3 |" in row
+    # 최신 회의: Agreement 1건, Working Assumption 1건, 미결 FFS 2건 / 누적 결정 3건
+    assert "| 1 | 1 | 2 | 3 |" in row
+
+
+def test_source_shows_chair_notes_tdoc_and_discussion():
+    e = entry("RAN1#118", "csi_prediction", 1)
+    e["source"].update(tdoc="R1-2600001", tdoc_url="https://example.invalid/R1-2600001.zip", discussion="118-X")
+    md = gr.render_item_report(CONFIG["items"][0], make_db(e))
+    assert "[R1-2600001](https://example.invalid/R1-2600001.zip)" in md
+    assert "`[118-X]`" in md
 
 
 def test_write_reports_creates_files(tmp_path):

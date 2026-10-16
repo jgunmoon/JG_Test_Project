@@ -16,6 +16,10 @@
 
 ftp_base_url: "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
 
+# 자동 실행(check_schedule)이 확인을 시작하는 회의. 이 회의부터 이후 회의만 처리합니다.
+# 과거 회의를 채우려면: python -m scripts.check_schedule --since RAN1#122
+track_from: "RAN1#126"
+
 items:
   - id: aiml_air_interface
     name: "AI/ML for NR Air Interface"

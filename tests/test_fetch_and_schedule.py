@@ -1,0 +1,102 @@
+# FTP 목록·파일은 모두 코드로 만든 가상 데이터입니다 (네트워크 사용 안 함).
+import io
+import zipfile
+
+from scripts import check_schedule as cs
+from scripts import fetch_ftp_docs as ff
+
+BASE = "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
+
+
+def listing(url, names):
+    """3GPP FTP 목록 페이지와 같은 형식의 HTML."""
+    links = "".join(
+        f'<a class="file" href="{url}{n.replace(" ", "%20").replace("#", "%23")}">{n}</a>\n' for n in names)
+    return f'<html><a href="{url.rsplit("/", 2)[0]}/">parent</a>{links}</html>'
+
+
+def test_list_dir_returns_unquoted_child_names_only():
+    url = BASE + "TSGR1_126/Inbox/Chair_notes/"
+    html = listing(url, ["Chair notes RAN1#126_eom1.docx", "Sub"])
+    assert ff.parse_listing(html, url) == ["Chair notes RAN1#126_eom1.docx", "Sub"]
+
+
+def test_final_chair_notes_picks_highest_eom_and_ignores_drafts():
+    names = [
+        "Chair notes RAN1#124bis_eom.docx", "Chair notes RAN1#124bis_eom5.docx",
+        "Chair notes RAN1#124bis_eom2.docx", "Chair notes RAN1#124bis_v15.docx",
+        "Draft Chair notes RAN1#124bis_eom9.docx", "RAN1#124b online and offline schedules - v00.docx",
+    ]
+    assert ff.pick_final_chair_notes(names) == "Chair notes RAN1#124bis_eom5.docx"
+
+
+def test_final_chair_notes_accepts_zip_with_space_separator():
+    assert ff.pick_final_chair_notes(["Chair notes RAN1#122 v14.zip", "Chair notes RAN1#122 eom.zip"]) \
+        == "Chair notes RAN1#122 eom.zip"
+
+
+def test_no_final_chair_notes_while_meeting_is_running():
+    assert ff.pick_final_chair_notes(["Chair notes RAN1#126bis_v00.docx",
+                                      "Draft Chair notes RAN1#126bis_v01.docx"]) is None
+
+
+def test_zip_download_extracts_the_docx_safely(tmp_path):
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("../../evil/Chair notes.docx", b"DOCX")   # zip 경로 탈출 시도
+        z.writestr("readme.txt", b"x")
+    path = ff.save_download("Chair notes RAN1#122 eom.zip", buf.getvalue(), tmp_path)
+    assert path == tmp_path / "Chair notes.docx"
+    assert path.read_bytes() == b"DOCX"
+    assert not (tmp_path.parent / "evil").exists()
+
+
+def test_docx_download_is_saved_as_is(tmp_path):
+    path = ff.save_download("Chair notes RAN1#126_eom1.docx", b"DOCX", tmp_path)
+    assert path.read_bytes() == b"DOCX"
+
+
+def test_find_final_returns_none_when_chair_notes_folder_is_missing():
+    tree = {"TSGR1_128": ["Agenda", "Inbox"], "TSGR1_128/Inbox": ["drafts"]}
+    assert ff.find_final_chair_notes("TSGR1_128", lister=tree.__getitem__) is None
+
+
+def test_find_final_returns_quoted_ftp_url():
+    tree = {"TSGR1_126": ["Inbox"], "TSGR1_126/Inbox": ["Chair_notes"],
+            "TSGR1_126/Inbox/Chair_notes": ["Chair notes RAN1#126_eom1.docx"]}
+    name, url = ff.find_final_chair_notes("TSGR1_126", lister=tree.__getitem__)
+    assert url == BASE + "TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx"
+
+
+def fake_finder(table):
+    def finder(folder):
+        name = table.get(folder)
+        return (name, f"{BASE}{folder}/Inbox/Chair_notes/{name}") if name else None
+    return finder
+
+
+def test_pending_meetings_are_new_or_updated_finals_since_start():
+    folders = ["TSGR1_124b", "TSGR1_125", "TSGR1_126", "TSGR1_126b", "TSGR1_AH"]
+    finder = fake_finder({
+        "TSGR1_124b": "Chair notes RAN1#124bis_eom5.docx",   # 시작 회의 이전 → 제외
+        "TSGR1_125": "Chair notes RAN1#125_eom.docx",        # 이미 처리됨 → 제외
+        "TSGR1_126": "Chair notes RAN1#126_eom1.docx",       # eom → eom1 갱신 → 재처리
+        "TSGR1_126b": None,                                   # 회의 중 → 제외
+    })
+    db = {"meetings": {
+        "RAN1#125": {"chair_notes_url": f"{BASE}TSGR1_125/Inbox/Chair_notes/Chair notes RAN1#125_eom.docx"},
+        "RAN1#126": {"chair_notes_url": f"{BASE}TSGR1_126/Inbox/Chair_notes/Chair notes RAN1#126_eom.docx"},
+    }}
+    pending = cs.pending_meetings(db, folders, finder, since="RAN1#125")
+    assert [(p["folder"], p["meeting"]) for p in pending] == [("TSGR1_126", "RAN1#126")]
+
+
+def test_finder_is_not_called_for_meetings_before_start():
+    calls = []
+
+    def finder(folder):
+        calls.append(folder)
+        return None
+
+    cs.pending_meetings({"meetings": {}}, ["TSGR1_100", "TSGR1_126"], finder, since="RAN1#126")
+    assert calls == ["TSGR1_126"]

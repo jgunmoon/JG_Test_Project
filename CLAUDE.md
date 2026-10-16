@@ -55,12 +55,18 @@ ran1-6g-tracker/
 ```bash
 pip install -r requirements.txt        # 의존성 설치
 python -m pytest -q                    # 테스트
+python -m scripts.check_schedule       # [자동 실행 진입점] 새 회의 종료본 확인 → 다운로드 → 파싱 → 리포트
+python -m scripts.check_schedule --dry-run              # 처리할 회의만 출력
+python -m scripts.check_schedule --since RAN1#122       # 과거 회의 채우기
+python -m scripts.fetch_ftp_docs TSGR1_126              # 한 회의의 최종 Chair notes만 내려받기
 python -m scripts.parse_agreements <chair_notes.docx> --folder TSGR1_126 --url <FTP 원문 URL>
                                        # Chair notes → data/agreements_db.json (그 회의 항목만 교체)
 python -m scripts.generate_report      # data/agreements_db.json → reports/ 재생성
 ```
 
 - 3GPP 서버(Cloudflare)는 기본 curl/requests User-Agent를 403으로 거부합니다. 브라우저 User-Agent를 보내야 합니다.
+- 3GPP 서버는 없는 폴더에도 404가 아니라 403을 돌려줍니다. 폴더 존재 여부는 상위 목록으로 확인합니다.
+- '회의 종료 다음 날' 트리거는 일정표가 아니라 FTP에 회의 종료본(_eom)이 새로 올라왔는지(또는 갱신됐는지)로 판단합니다.
 - 회의 종료본 Chair notes는 `TSGR1_<번호>/Inbox/Chair_notes/` 의 `Chair notes RAN1#<번호>_eom*.docx` 입니다.
 - 내려받은 원본 문서는 `downloads/`(gitignore)나 임시 폴더에 두고 커밋하지 않습니다.
 

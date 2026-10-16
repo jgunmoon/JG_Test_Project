@@ -1,6 +1,7 @@
 # RAN1 트래커 수동 실행
 # GitHub 저장소 → Actions → "RAN1 tracker" → "Run workflow" 버튼으로 실행합니다.
 # 새 회의 종료본이 있으면 DB와 리포트를 갱신해 실행한 브랜치에 커밋합니다. 없으면 아무것도 바꾸지 않습니다.
+# 실행이 끝나면 reports/ 폴더(HTML 대시보드 포함)를 GitHub Pages로 다시 게시합니다.
 #
 # 매일 자동 실행으로 바꾸려면 아래 on: 에 다음을 추가하면 됩니다 (UTC 기준, 아래는 한국시간 오전 9시).
 #   schedule:
@@ -67,3 +68,28 @@ jobs:
           git add data reports
           git commit -m "Update RAN1 tracker data and reports"
           git push
+
+  # reports/ 폴더를 GitHub Pages로 게시합니다 (Settings → Pages → Source: GitHub Actions 필요).
+  # 주소: https://<계정>.github.io/<저장소>/  → reports/index.html 대시보드가 열립니다.
+  pages:
+    needs: track
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref_name }}   # track 작업이 방금 커밋한 최신 리포트를 받기 위해 브랜치 최신 상태로
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: reports
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

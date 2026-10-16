@@ -34,7 +34,10 @@ def test_standalone_page_is_a_full_document_and_fragment_is_not():
 
 
 def test_text_from_documents_is_escaped():
+    import re
     page = rh.render_html(CONFIG, DB)
+    # 검색용 JSON 블록은 HTML로 해석되지 않으므로 제외하고 검사합니다 (블록 탈출은 test_search에서 확인).
+    page = re.sub(r'<script type="application/json".*?</script>', "", page, flags=re.S)
     assert "Beam &lt;Management&gt;" in page and "<Management>" not in page
     assert "&lt;X&gt;" in page
 

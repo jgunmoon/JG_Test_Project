@@ -30,16 +30,7 @@ FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 아이템 �
 | ISAC | 28 | 0 | 17 | 7 | +0 / -0 |
 | 6G Study Item (6GR, 기타) | 138 | 1 | 53 | 7 | +6 / -2 |
 
-## 주제별 보기
-
-Agenda와 관계없이 본문 키워드로 모은 결정입니다 (설정의 `topics`).
-
-- [DMRS](by_topic/dmrs.md) — 92건
-- [PT-RS](by_topic/ptrs.md) — 6건
-- [SRS](by_topic/srs.md) — 128건
-- [CSI-RS](by_topic/csi_rs.md) — 166건
-
-보기 좋은 화면은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.
+보기 좋은 화면과 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.
 
 ## 회의별 리포트
 

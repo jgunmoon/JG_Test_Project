@@ -153,25 +153,6 @@ def render_meeting_report(meeting, config, db):
     return "\n".join(lines)
 
 
-def render_topic_report(topic, config, db):
-    from scripts import topics  # topics가 이 모듈을 import하므로 함수 안에서 불러옵니다
-
-    names = {i["id"]: i["name"] for i in config["items"]}
-    found = topics.entries_for(db, topic)
-    lines = [f"# 주제: {topic['name']}", "", GENERATED_NOTE, "",
-             f"키워드 {', '.join(f'`{k}`' for k in topic['keywords'])}가 본문이나 Agenda 제목에 나오는 결정입니다. "
-             "아이템 분류와 관계없이 모았습니다.", ""]
-    if not found:
-        return "\n".join(lines + ["해당 결정이 없습니다.", ""])
-    per = Counter(e["meeting"] for e in found)
-    lines += ["| 회의 | 결정 수 |", "|---|---|"] + [f"| {m} | {per[m]} |" for m in _meetings(db)] + [""]
-    lines += ["| 회의 | Agenda | 아이템 | 구분 | 내용 | 출처 |", "|---|---|---|---|---|---|"]
-    lines += [f"| {e['meeting']} | {e.get('agenda_item', '')} {_cell(e.get('agenda_title', ''))} "
-              f"| {names.get(e['item'], e['item'])} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
-              for e in found]
-    return "\n".join(lines + [""])
-
-
 def render_dashboard(config, db):
     lines = ["# RAN1 6G PHY 트래커 대시보드", "", GENERATED_NOTE, ""]
     meetings = _meetings(db)
@@ -202,12 +183,7 @@ def render_dashboard(config, db):
             d = delta.compute(db, item["id"], prev, latest)
             lines.append(f"| {item['name']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} | {d['prev_ffs']} "
                          f"| {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
-    if config.get("topics"):
-        from scripts import topics
-        lines += ["", "## 주제별 보기", "", "Agenda와 관계없이 본문 키워드로 모은 결정입니다 (설정의 `topics`).", ""]
-        lines += [f"- [{t['name']}](by_topic/{t['id']}.md) — {len(topics.entries_for(db, t))}건"
-                  for t in config["topics"]]
-    lines += ["", "보기 좋은 화면은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
+    lines += ["", "보기 좋은 화면과 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
               "", "## 회의별 리포트", ""]
     lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]
     return "\n".join(lines + [""])
@@ -224,11 +200,6 @@ def write_reports(config, db, out_dir):
     for meeting in _meetings(db):
         (out_dir / "by_meeting" / f"{meeting_slug(meeting)}.md").write_text(
             render_meeting_report(meeting, config, db), encoding="utf-8")
-    if config.get("topics"):
-        (out_dir / "by_topic").mkdir(parents=True, exist_ok=True)
-        for topic in config["topics"]:
-            (out_dir / "by_topic" / f"{topic['id']}.md").write_text(
-                render_topic_report(topic, config, db), encoding="utf-8")
     from scripts.render_html import render_html  # render_html이 이 모듈을 import하므로 함수 안에서 불러옵니다
     (out_dir / "index.html").write_text(render_html(config, db), encoding="utf-8")
 

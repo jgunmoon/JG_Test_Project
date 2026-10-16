@@ -7,7 +7,9 @@ generate_report가 마크다운 리포트와 함께 호출합니다. 외부 스�
 from collections import Counter
 from html import escape
 
-from scripts import delta, topics
+import json
+
+from scripts import delta
 from scripts.generate_report import TYPES, meeting_slug, meeting_sort_key
 
 TITLE = "RAN1 6G PHY Tracker"
@@ -18,18 +20,18 @@ CSS = """
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --ink-2: #4a5260; --ink-3: #737b88;
   --rule: #dfe3e9; --accent: #2a78d6; --accent-soft: #b9d2f1; --candidate: #8a5a00; --candidate-bg: #fff3d6;
-  --confirmed: #0d6b3c; --confirmed-bg: #dcf3e6;
+  --confirmed: #0d6b3c; --confirmed-bg: #dcf3e6; --mark: #ffe08a;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #11141a; --panel: #181c24; --ink: #eef1f5; --ink-2: #b8c0cc; --ink-3: #8b94a3;
   --rule: #2a313d; --accent: #3987e5; --accent-soft: #2c4a72; --candidate: #f2c46b; --candidate-bg: #3a2f14;
-  --confirmed: #7fd9a6; --confirmed-bg: #173526; color-scheme: dark; } }
+  --confirmed: #7fd9a6; --confirmed-bg: #173526; --mark: #6b5208; color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #11141a; --panel: #181c24; --ink: #eef1f5; --ink-2: #b8c0cc; --ink-3: #8b94a3;
   --rule: #2a313d; --accent: #3987e5; --accent-soft: #2c4a72; --candidate: #f2c46b; --candidate-bg: #3a2f14;
-  --confirmed: #7fd9a6; --confirmed-bg: #173526; color-scheme: dark; }
+  --confirmed: #7fd9a6; --confirmed-bg: #173526; --mark: #6b5208; color-scheme: dark; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; margin: 0; }
 .wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 56px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -91,9 +93,24 @@ table.matrix th.num { white-space: normal; min-width: 7ch; max-width: 16ch; text
 .basis { font-size: 12px; color: var(--ink-3); }
 .items-list { display: grid; gap: 10px; }
 .agenda-change { margin: 0; font-size: 13px; }
-.topic-nav { display: flex; flex-wrap: wrap; gap: 8px; }
-.topic-nav a { font-size: 13px; padding: 3px 10px; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel); text-decoration: none; }
-.topic-nav a .num { color: var(--ink-3); margin-left: 4px; }
+.search { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.search input[type=search] { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px;
+  border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); color: var(--ink); }
+.search input[type=search]:focus-visible, .search select:focus-visible, .search button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; }
+.filters label { display: inline-flex; gap: 6px; align-items: center; color: var(--ink-2); }
+.filters select { font: inherit; font-size: 13px; padding: 4px 6px; border: 1px solid var(--rule); border-radius: 6px; background: var(--bg); color: var(--ink); max-width: 100%; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-3); }
+.presets button, .more { font: inherit; font-size: 13px; padding: 3px 10px; border: 1px solid var(--rule); border-radius: 999px;
+  background: var(--bg); color: var(--accent); cursor: pointer; }
+.summary-line { font-size: 13px; color: var(--ink-2); }
+.summary-line .num { color: var(--ink); }
+.results { display: grid; gap: 10px; min-width: 0; }
+.result { border-top: 1px solid var(--rule); padding-top: 10px; display: grid; gap: 6px; min-width: 0; }
+.result-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 13px; }
+.result-head .type { font-size: 12px; color: var(--ink-3); }
+.result .src { font-size: 12px; color: var(--ink-3); overflow-wrap: anywhere; }
+mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
 .cell-text { white-space: pre-line; max-height: 9em; overflow-y: auto; min-width: 24ch; overflow-wrap: anywhere; }
 .counts { font-family: var(--font-data); font-size: 12px; color: var(--ink-3); }
 footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 16px; }
@@ -103,7 +120,80 @@ footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule)
 @media (prefers-reduced-motion: no-preference) { details > summary { transition: background-color .15s; } }
 """
 
-SCRIPT = """
+SCRIPT = r"""
+(() => {
+  const dataEl = document.getElementById('decisions');
+  if (!dataEl) return;
+  const DATA = JSON.parse(dataEl.textContent);
+  const $ = id => document.getElementById(id);
+  const q = $('q'), fItem = $('f-item'), fMeeting = $('f-meeting'), fType = $('f-type'), fWord = $('f-word');
+  const out = $('results'), summary = $('summary'), PAGE = 50;
+  let hits = [], shown = 0, timer;
+  const opt = (sel, value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; sel.append(o); };
+  Object.entries(DATA.items).forEach(([id, name]) => opt(fItem, id, name));
+  [...DATA.meetings].reverse().forEach(m => opt(fMeeting, m, m));
+  const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = (t, word) => word ? `(?<![A-Za-z0-9])${esc(t)}(?![A-Za-z0-9])` : esc(t);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const link = (url, label) => { if (!/^https:\/\//.test(url || '')) return el('span', null, label);
+    const a = el('a', null, label); a.href = url; a.target = '_blank'; a.rel = 'noopener'; return a; };
+  function highlight(node, text, re) {
+    if (!re) { node.textContent = text; return; }
+    let last = 0;
+    for (const m of text.matchAll(re)) {
+      if (!m[0]) continue;
+      node.append(text.slice(last, m.index), el('mark', null, m[0]));
+      last = m.index + m[0].length;
+    }
+    node.append(text.slice(last));
+  }
+  function render(e, re) {
+    const box = el('article', 'result');
+    const head = el('div', 'result-head');
+    head.append(el('span', 'mono', e.meeting), el('span', 'mono', e.agenda_item),
+      el('span', 'muted', e.agenda_title), el('span', null, DATA.items[e.item] || e.item), el('span', 'type', e.type));
+    const text = el('div', 'cell-text small'); highlight(text, e.text, re);
+    const src = el('div', 'src'); const s = e.source;
+    src.append(link(s.url, s.doc));
+    if (s.tdoc) src.append(' · ', link(s.tdoc_url, s.tdoc));
+    if (s.discussion) src.append(' · ', el('span', 'mono', `[${s.discussion}]`));
+    box.append(head, text, src);
+    return box;
+  }
+  function showMore(re) {
+    out.querySelector('.more')?.remove();
+    hits.slice(shown, shown + PAGE).forEach(e => out.append(render(e, re)));
+    shown = Math.min(shown + PAGE, hits.length);
+    if (shown < hits.length) {
+      const b = el('button', 'more', `더 보기 (남은 ${hits.length - shown}건)`);
+      b.type = 'button'; b.addEventListener('click', () => showMore(re)); out.append(b);
+    }
+  }
+  function run() {
+    const terms = q.value.trim().split(/\s+/).filter(Boolean);
+    const filtered = fItem.value || fMeeting.value || fType.value;
+    out.replaceChildren(); shown = 0;
+    if (!terms.length && !filtered) {
+      summary.textContent = `검색어를 입력하거나 필터를 고르세요. 전체 ${DATA.entries.length.toLocaleString()}건에서 찾습니다.`;
+      hits = []; return;
+    }
+    const res = terms.map(t => new RegExp(pattern(t, fWord.checked), 'i'));
+    const re = terms.length ? new RegExp(terms.map(t => pattern(t, fWord.checked)).join('|'), 'gi') : null;
+    hits = DATA.entries.filter(e =>
+      (!fItem.value || e.item === fItem.value) && (!fMeeting.value || e.meeting === fMeeting.value) &&
+      (!fType.value || e.type === fType.value) &&
+      res.every(r => r.test(e.text) || r.test(e.agenda_title))).reverse();
+    const per = {}; hits.forEach(e => { per[e.meeting] = (per[e.meeting] || 0) + 1; });
+    summary.replaceChildren(el('span', 'num', `${hits.length.toLocaleString()}건`),
+      hits.length ? ' · 회의별 ' + DATA.meetings.filter(m => per[m]).map(m => `${m.replace('RAN1#', '#')} ${per[m]}`).join(' · ')
+                  : ' · 일치하는 결정이 없습니다. 철자나 필터를 확인하세요.');
+    showMore(re);
+  }
+  [q].forEach(n => n.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 150); }));
+  [fItem, fMeeting, fType, fWord].forEach(n => n.addEventListener('change', run));
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { q.value = b.dataset.preset; run(); q.focus(); }));
+  run();
+})();
 (() => {
   const openHash = () => { const d = location.hash && document.getElementById(location.hash.slice(1));
     if (d && d.tagName === 'DETAILS') d.open = true; };
@@ -241,35 +331,39 @@ def _delta_detail(item, d):
 </details>""" if count or d["agenda_new"] or d["agenda_dropped"] else ""
 
 
-def _topics_section(config, db, meetings, base):
-    names = {i["id"]: i["name"] for i in config["items"]}
-    nav, blocks = [], []
-    for t in config["topics"]:
-        found = topics.entries_for(db, t)
-        per = Counter(e["meeting"] for e in found)
-        nav.append(f'<a href="#topic-{_e(t["id"])}">{_e(t["name"])}<span class="num">{len(found)}</span></a>')
-        counts = " · ".join(f"{_e(_short(m))} {per[m]}" for m in meetings)
-        rows = "".join(
-            f'<tr><td class="mono">{_e(e["meeting"])}</td>'
-            f'<td><span class="mono">{_e(e.get("agenda_item", ""))}</span><br><span class="small muted">{_e(e.get("agenda_title", ""))}</span></td>'
-            f'<td class="small">{_e(names.get(e["item"], e["item"]))}</td><td class="small">{_e(e["type"])}</td>'
-            f'<td><div class="cell-text small">{_e(e["text"])}</div></td><td class="small">{_source(e["source"])}</td></tr>'
-            for e in reversed(found))
-        body = (f'<div class="table-scroll"><table><thead><tr><th>회의</th><th>Agenda</th><th>아이템</th><th>구분</th>'
-                f'<th>내용</th><th>출처</th></tr></thead><tbody>{rows}</tbody></table></div>'
-                if found else '<p class="empty">해당 결정이 없습니다</p>')
-        blocks.append(f"""<details id="topic-{_e(t["id"])}">
-  <summary><h3>{_e(t["name"])}</h3><span class="small muted">{len(found)}건 · 키워드 {_e(", ".join(t["keywords"]))}</span>
-    <span class="counts">{counts}</span></summary>
-  <div class="detail-body">{body}
-    <span class="small">{_link(f"{base}by_topic/{t['id']}.md", "마크다운 리포트")}</span></div>
-</details>""")
-    return f"""<section>
-  <h2>주제별 보기</h2>
-  <p class="lede">Agenda와 관계없이 본문이나 Agenda 제목에 키워드가 나오는 결정을 모았습니다. 한 결정이 여러 주제에 들어갈 수 있습니다.
-    주제는 config/tracked_items.yaml의 topics에 추가합니다.</p>
-  <nav class="topic-nav">{"".join(nav)}</nav>
-  {"".join(blocks)}
+def _json_for_script(data):
+    # 본문에 '</script>'나 '<!--'가 있어도 스크립트 태그가 끝나지 않도록 막습니다.
+    return json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\!--")
+
+
+def _search_section(config, db, meetings):
+    keep = ("meeting", "agenda_item", "agenda_title", "item", "type", "text", "source")
+    data = {
+        "items": {i["id"]: i["name"] for i in config["items"]},
+        "meetings": meetings,
+        "entries": [{k: e.get(k, "") for k in keep} for e in
+                    sorted(db["entries"], key=lambda e: (meeting_sort_key(e["meeting"]), e["id"]))],
+    }
+    presets = "".join(f'<button type="button" data-preset="{_e(p)}">{_e(p)}</button>'
+                      for p in config.get("search_presets", []))
+    types = "".join(f'<option value="{_e(t)}">{_e(t)}</option>' for t in TYPES)
+    return f"""<section id="search">
+  <h2>결정 검색</h2>
+  <div class="search" role="search">
+    <input type="search" id="q" placeholder="예: DMRS, PDCCH REG bundle, codebook Type-II" autocomplete="off"
+      aria-label="결정 원문과 Agenda 제목에서 찾을 키워드">
+    <div class="filters">
+      <label>아이템 <select id="f-item"><option value="">전체</option></select></label>
+      <label>회의 <select id="f-meeting"><option value="">전체</option></select></label>
+      <label>구분 <select id="f-type"><option value="">전체</option>{types}</select></label>
+      <label><input type="checkbox" id="f-word" checked> 단어 단위로만 찾기</label>
+    </div>
+    {f'<div class="presets">추천 검색어 {presets}</div>' if presets else ""}
+    <div class="summary-line" id="summary" aria-live="polite"></div>
+    <div class="results" id="results"></div>
+  </div>
+  <p class="lede">여러 단어를 띄어 쓰면 모두 포함된 결정만 찾습니다. 대소문자는 구분하지 않고, 최신 회의부터 보여줍니다.</p>
+  <script type="application/json" id="decisions">{_json_for_script(data)}</script>
 </section>"""
 
 
@@ -290,6 +384,7 @@ def render_body(config, db):
     <div><dt>누적 결정</dt><dd>{total:,}</dd></div>
   </dl>
 </header>"""]
+    parts.append(_search_section(config, db, meetings))
 
     deltas = []
     if len(meetings) > 1:
@@ -319,8 +414,6 @@ def render_body(config, db):
         parts.append(f'<section><h2>Delta 상세 <span class="mono muted">{_e(meetings[-2])} → {_e(latest)}</span></h2>'
                      f'<p class="lede">아이템을 열면 원문 문장과 FTP 출처를 나란히 볼 수 있습니다.</p>{details}</section>')
 
-    if config.get("topics"):
-        parts.append(_topics_section(config, db, meetings, base))
 
     head = "".join(f'<th class="num">{_e(item["name"])}</th>' for item in config["items"])
     body = []

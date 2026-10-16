@@ -175,3 +175,59 @@ def test_heading_numbered_shallower_than_its_style_is_still_agenda(tmp_path):
     assert e["agenda_item"] == "9.1.1"
     assert e["source"]["discussion"] == "126-R20-AI"
     assert "tdoc" not in e["source"]
+
+
+def test_official_agenda_numbers_override_word_numbering(tmp_path):
+    # 실제 RAN1#124: 공식 Agenda에 '10.5.0 General aspects'가 있어 Word 번호와 하나씩 어긋남
+    d = Doc()
+    d.heading("Opening of the meeting (Day 1: 9:00 am)", 0)
+    d.heading("Rel-20 Study of 6GR", 0)
+    d.heading("Multi-antenna system", 1)
+    d.heading("General aspects and frameworks", 2, style="Heading 3")
+    d.heading("MIMO operation", 2, style="Heading 3")
+    d.heading("Beam  management for downlink and uplink ", 3, style="Heading 4")
+    d.tdoc("R1-2600009", "\tFL summary on 10.5.1.4\tVendorC", bold=True)
+    d.para("Agreement")
+    d.para("Text")
+    agenda = {
+        "1": "Opening of the meeting",
+        "10": "Rel-20 Study of 6GR",
+        "10.5": "Multi-antenna system",
+        "10.5.0": "General aspects and frameworks",
+        "10.5.1": "MIMO operation",
+        "10.5.1.4": "Beam management for downlink and uplink",
+    }
+    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS, agenda=agenda)
+    assert entries[0]["agenda_item"] == "10.5.1.4"
+    assert entries[0]["id"] == "RAN1#999:10.5.1.4:001"
+    assert warnings == []
+
+
+def test_heading_missing_from_official_agenda_falls_back_with_warning(tmp_path):
+    d = Doc()
+    d.heading("Rel-20 Study of 6GR", 0)
+    d.heading("Unlisted topic", 1)
+    d.para("Agreement")
+    d.para("Text")
+    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS,
+                                             agenda={"10": "Rel-20 Study of 6GR"})
+    assert entries[0]["agenda_item"] == "10.1"
+    assert any("Unlisted topic" in w for w in warnings)
+
+
+def test_parse_agenda_csv():
+    text = '﻿"1","Opening of the meeting"\n"10.5.0","General aspects and frameworks"\n'
+    assert pa.parse_agenda_csv(text) == {"1": "Opening of the meeting", "10.5.0": "General aspects and frameworks"}
+
+
+def test_title_wording_difference_is_fine_when_number_exists_in_agenda(tmp_path):
+    # 실제 RAN1#124bis: Chair notes 'ISAC' / 공식 Agenda 'Integrated Sensing And Communication (ISAC)'
+    d = Doc()
+    d.heading("Rel-20 Study of 6GR", 0)
+    d.heading("ISAC", 1)
+    d.para("Agreement")
+    d.para("Text")
+    agenda = {"1": "Rel-20 Study of 6GR", "1.1": "Integrated Sensing And Communication (ISAC)"}
+    entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, ITEMS, agenda=agenda)
+    assert entries[0]["agenda_item"] == "1.1"
+    assert warnings == []

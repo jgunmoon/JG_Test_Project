@@ -6,7 +6,8 @@
 
 '회의 종료 다음 날' 판단은 일정표 날짜가 아니라 FTP 상태로 합니다.
 회의 종료본 Chair notes(_eom)가 새로 올라왔거나(_eom → _eom1 등) 갱신된 회의만 처리하므로,
-매일 실행하면 최종본이 올라온 다음 실행에서 반영됩니다. 같은 문서는 다시 처리하지 않습니다.
+매일 실행하면 최종본이 올라온 다음 실행에서 반영됩니다. 같은 문서를 같은 파서 버전으로
+이미 처리했으면 건너뛰고, 파서 버전(PARSER_VERSION)이 바뀌면 다시 처리합니다.
 """
 import argparse
 import json
@@ -15,7 +16,8 @@ import yaml
 
 from scripts import fetch_ftp_docs as ff
 from scripts.generate_report import ROOT, meeting_sort_key, write_reports
-from scripts.parse_agreements import meeting_id_from_folder, merge_meeting, parse_chair_notes
+from scripts.parse_agreements import (PARSER_VERSION, meeting_id_from_folder, merge_meeting, parse_agenda_csv,
+                                     parse_chair_notes)
 
 CONFIG_PATH = ROOT / "config" / "tracked_items.yaml"
 DB_PATH = ROOT / "data" / "agreements_db.json"
@@ -39,8 +41,9 @@ def pending_meetings(db, folders, finder, since):
         if not final:
             continue
         name, url = final
-        if db["meetings"].get(meeting, {}).get("chair_notes_url") == url:
-            continue
+        done = db["meetings"].get(meeting, {})
+        if done.get("chair_notes_url") == url and done.get("parser_version") == PARSER_VERSION:
+            continue  # 같은 문서를 같은 파서로 이미 처리함
         pending.append({"meeting": meeting, "folder": folder, "name": name, "url": url})
     return pending
 
@@ -67,10 +70,17 @@ def main():
 
     for p in pending:
         path = ff.download_chair_notes(p["folder"], p["name"], p["url"])
-        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], config["items"])
+        agenda_csv = ff.fetch_agenda_csv(p["folder"])
+        agenda = parse_agenda_csv(agenda_csv) if agenda_csv else None
+        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], config["items"], agenda=agenda)
         for w in warnings:
             print(f"  경고: {w}")
-        merge_meeting(db, p["meeting"], entries, {"ftp_dir": p["folder"], "chair_notes_url": p["url"]})
+        merge_meeting(db, p["meeting"], entries, {
+            "ftp_dir": p["folder"],
+            "chair_notes_url": p["url"],
+            "agenda_source": "agenda.csv" if agenda else "chair_notes_numbering",
+            "parser_version": PARSER_VERSION,
+        })
         print(f"  {p['meeting']}: {len(entries)}건 추출")
 
     write_reports(config, db, ROOT / "reports")

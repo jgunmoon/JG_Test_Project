@@ -35,6 +35,25 @@ def test_final_chair_notes_accepts_zip_with_space_separator():
         == "Chair notes RAN1#122 eom.zip"
 
 
+def test_final_chair_notes_name_variants_seen_on_ftp():
+    cases = {
+        "TSGR1_120b": (["Chair notes RAN1#120bis v19.zip", "Chair notes RAN1#120bis eom0.zip"], "eom0.zip"),
+        "TSGR1_122b": (["Chair notes RAN1#122b eom.docx", "Chair notes RAN1#122b eom4.docx"], "eom4.docx"),
+        "TSGR1_123": (["Chair notes RAN1#123 - v09.docx", "Chair notes RAN1#123 - eom3.docx"], "eom3.docx"),
+        "TSGR1_124": (["Chair notes RAN1#124 - eom.docx", "Chair notes RAN1#124 - eom_03.docx",
+                       "Chair notes RAN1#124 - eom_01.docx", "Chair notes RAN1#124 - v10.docx"], "eom_03.docx"),
+    }
+    for folder, (names, expected) in cases.items():
+        assert ff.pick_final_chair_notes(names).endswith(expected), folder
+
+
+def test_chair_notes_folder_name_is_case_insensitive():
+    tree = {"TSGR1_122b": ["Inbox"], "TSGR1_122b/Inbox": ["Chair_Notes"],
+            "TSGR1_122b/Inbox/Chair_Notes": ["Chair notes RAN1#122b eom4.docx"]}
+    _, url = ff.find_final_chair_notes("TSGR1_122b", lister=tree.__getitem__)
+    assert "/Inbox/Chair_Notes/" in url
+
+
 def test_no_final_chair_notes_while_meeting_is_running():
     assert ff.pick_final_chair_notes(["Chair notes RAN1#126bis_v00.docx",
                                       "Draft Chair notes RAN1#126bis_v01.docx"]) is None
@@ -83,12 +102,24 @@ def test_pending_meetings_are_new_or_updated_finals_since_start():
         "TSGR1_126": "Chair notes RAN1#126_eom1.docx",       # eom → eom1 갱신 → 재처리
         "TSGR1_126b": None,                                   # 회의 중 → 제외
     })
+    v = cs.PARSER_VERSION
     db = {"meetings": {
-        "RAN1#125": {"chair_notes_url": f"{BASE}TSGR1_125/Inbox/Chair_notes/Chair notes RAN1#125_eom.docx"},
-        "RAN1#126": {"chair_notes_url": f"{BASE}TSGR1_126/Inbox/Chair_notes/Chair notes RAN1#126_eom.docx"},
+        "RAN1#125": {"chair_notes_url": f"{BASE}TSGR1_125/Inbox/Chair_notes/Chair notes RAN1#125_eom.docx",
+                     "parser_version": v},
+        "RAN1#126": {"chair_notes_url": f"{BASE}TSGR1_126/Inbox/Chair_notes/Chair notes RAN1#126_eom.docx",
+                     "parser_version": v},
     }}
     pending = cs.pending_meetings(db, folders, finder, since="RAN1#125")
     assert [(p["folder"], p["meeting"]) for p in pending] == [("TSGR1_126", "RAN1#126")]
+
+
+def test_meeting_is_reprocessed_when_parser_version_changes():
+    url = f"{BASE}TSGR1_125/Inbox/Chair_notes/Chair notes RAN1#125_eom.docx"
+    finder = fake_finder({"TSGR1_125": "Chair notes RAN1#125_eom.docx"})
+    old = {"meetings": {"RAN1#125": {"chair_notes_url": url, "parser_version": cs.PARSER_VERSION - 1}}}
+    same = {"meetings": {"RAN1#125": {"chair_notes_url": url, "parser_version": cs.PARSER_VERSION}}}
+    assert len(cs.pending_meetings(old, ["TSGR1_125"], finder, since="RAN1#125")) == 1
+    assert cs.pending_meetings(same, ["TSGR1_125"], finder, since="RAN1#125") == []
 
 
 def test_finder_is_not_called_for_meetings_before_start():
@@ -100,3 +131,12 @@ def test_finder_is_not_called_for_meetings_before_start():
 
     cs.pending_meetings({"meetings": {}}, ["TSGR1_100", "TSGR1_126"], finder, since="RAN1#126")
     assert calls == ["TSGR1_126"]
+
+
+def test_fetch_agenda_csv_only_when_present():
+    tree = {"TSGR1_123": ["Agenda"], "TSGR1_123/Agenda": ["R1-2509000.zip"],
+            "TSGR1_124": ["Agenda"], "TSGR1_124/Agenda": ["agenda.csv"]}
+    assert ff.fetch_agenda_csv("TSGR1_123", lister=tree.__getitem__) is None
+    text = ff.fetch_agenda_csv("TSGR1_124", lister=tree.__getitem__,
+                               getter=lambda url: '\ufeff"1","Opening"'.encode("utf-8"))
+    assert text == '"1","Opening"'

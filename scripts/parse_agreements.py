@@ -8,11 +8,15 @@ Chair notes 구조 (RAN1#126 기준으로 확인):
 - 구간마다 다른 번호 목록(numId)을 쓰지만 Agenda 번호는 문서 전체에서 이어지므로,
   번호가 붙은 제목을 모두 하나의 계층으로 셉니다. 계산 결과는 FL summary 제목에 적힌
   Agenda 번호와 대조해 어긋나면 경고합니다.
+- 공식 Agenda(agenda.csv, RAN1#124부터 FTP에 있음)가 있으면 제목을 대조해 공식 번호를 씁니다.
+  공식 Agenda에는 Word 번호로 표현할 수 없는 '10.5.0 General aspects' 같은 0번 항목이 있습니다.
 - 각 결정은 'Agreement:' 같은 표시 줄로 시작하고, 다음 표시 줄 / TDoc 줄 / 제목에서 끝납니다.
 - 결정 바로 앞의 굵은 TDoc 줄(주로 FL summary)이 그 결정의 근거 문서입니다.
 - FFS는 별도 결정이 아니라 결정 안의 하위 줄로 들어 있습니다.
 """
 import argparse
+import csv
+import io
 import json
 import re
 from collections import Counter
@@ -27,6 +31,9 @@ from docx.text.paragraph import Paragraph
 
 from scripts.generate_report import ROOT, meeting_sort_key
 
+# 파싱 결과가 달라지는 수정을 하면 올립니다. DB의 회의별 parser_version과 다르면 자동 실행 때 다시 처리합니다.
+PARSER_VERSION = 2
+
 MARKER = re.compile(
     r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*:?", re.I)
 END_MARKER = re.compile(r"(observations?|decision)\s*:?", re.I)
@@ -36,6 +43,31 @@ TDOC = re.compile(r"R1-\d{7}\b")
 DISCUSSION = re.compile(r"\[(\d+[^\]]*)\]\s*Email discussion", re.I)
 SUMMARY_AGENDA = re.compile(r"summary\b.*?\b(?:on|for)\s+(?:AI\s+)?(\d{1,2}(?:\.\d{1,2})+)\b", re.I)
 TYPE_NAMES = {"agreement": "Agreement", "conclusion": "Conclusion", "working assumption": "Working Assumption"}
+
+
+def parse_agenda_csv(text):
+    """FTP의 agenda.csv("번호","제목" 형식)를 {번호: 제목}으로 읽습니다."""
+    rows = csv.reader(io.StringIO(text.lstrip("\ufeff")))
+    return {r[0].strip(): r[1].strip() for r in rows if len(r) >= 2 and re.fullmatch(r"\d+(\.\d+)*", r[0].strip())}
+
+
+def _norm_title(title):
+    title = title.replace("“", '"').replace("”", '"').replace("’", "'")
+    return " ".join(title.lower().split()).rstrip(" .:")
+
+
+def _official_number(title, parent, agenda_index):
+    """제목과 상위 번호로 공식 Agenda 번호를 찾습니다. 못 찾으면 None."""
+    t = _norm_title(title)
+    exact = [n for n, a in agenda_index if a == t]
+    # 'Opening of the meeting (Day 1: 9:00 am)'처럼 Chair notes 제목에 설명이 덧붙은 경우
+    candidates = exact or [n for n, a in agenda_index if a and t.startswith(a)]
+    same_parent = [n for n in candidates if n.rpartition(".")[0] == parent]
+    if len(same_parent) == 1:
+        return same_parent[0]
+    if len(candidates) == 1:
+        return candidates[0]
+    return None
 
 
 def meeting_id_from_folder(folder):
@@ -113,13 +145,15 @@ def match_item(heading_path, items):
     return best
 
 
-def parse_chair_notes(path, meeting, source_url, items):
+def parse_chair_notes(path, meeting, source_url, items, agenda=None):
     document = docx.Document(str(path))
+    agenda_index = [(n, _norm_title(t)) for n, t in (agenda or {}).items()]
     meeting_base = re.match(r"(.*/WG1_RL1/[^/]+/)", source_url)
     doc_name = Path(unquote(source_url.rsplit("/", 1)[-1])).stem
 
     entries, warnings, per_agenda = [], [], Counter()
-    counters, titles = [], []
+    counters, titles, numbers = [], [], []  # numbers: 레벨별 최종 Agenda 번호
+    unverified = {}  # 공식 Agenda로 확인하지 못한 번호 → 제목
     tdoc = discussion = None
     block = None  # {"type", "lines", "ffs", "skip"}
 
@@ -128,8 +162,10 @@ def parse_chair_notes(path, meeting, source_url, items):
         if block and not block["skip"] and block["lines"]:
             item = match_item(titles, items)
             if item:
-                agenda = ".".join(str(c) for c in counters)
+                agenda = numbers[-1] if numbers else ""
                 per_agenda[agenda] += 1
+                if agenda in unverified:
+                    warnings.append(f"공식 Agenda에 없는 번호 {agenda}(계산값)에 결정 기록: {unverified.pop(agenda)}")
                 source = {"doc": doc_name, "kind": "chairman_note", "url": source_url}
                 if discussion:
                     source["discussion"] = discussion
@@ -164,6 +200,14 @@ def parse_chair_notes(path, meeting, source_url, items):
             counters[level] += 1
             titles = (titles + [""] * (level + 1))[:level + 1]
             titles[level] = text
+            numbers = (numbers + [""] * (level + 1))[:level + 1]
+            parent = numbers[level - 1] if level else ""
+            official = _official_number(text, parent, agenda_index) if agenda_index else None
+            numbers[level] = official or (f"{parent}." if parent else "") + str(counters[level])
+            # 제목 표기가 달라도('ISAC' vs 'Integrated Sensing And Communication (ISAC)') 계산한 번호가
+            # 공식 Agenda에 있으면 위치가 맞는 것으로 봅니다. 없을 때만, 그리고 결정이 기록될 때만 경고합니다.
+            if agenda_index and not official and numbers[level] not in agenda:
+                unverified[numbers[level]] = text
             tdoc = discussion = None
             continue
         if _is_heading(b) or not text:
@@ -180,8 +224,8 @@ def parse_chair_notes(path, meeting, source_url, items):
             close()
             if TDOC.match(text):
                 stated = SUMMARY_AGENDA.search(text)
-                computed = ".".join(str(c) for c in counters)
-                warning = f"{TDOC.match(text).group(0)}: 제목의 Agenda {stated.group(1)} ≠ 계산값 {computed}" if stated else None
+                computed = numbers[-1] if numbers else ""
+                warning = f"{TDOC.match(text).group(0)}: 제목의 Agenda {stated.group(1)} ≠ 문서 위치 {computed}" if stated else None
                 if stated and stated.group(1) != computed and warning not in warnings:
                     warnings.append(warning)
                 if _starts_bold(b):
@@ -221,16 +265,23 @@ def main():
     ap.add_argument("docx", type=Path)
     ap.add_argument("--folder", required=True, help="FTP 회의 폴더 이름 (예: TSGR1_126)")
     ap.add_argument("--url", required=True, help="Chair notes 원문의 FTP URL")
+    ap.add_argument("--agenda", type=Path, help="공식 agenda.csv (있으면 공식 Agenda 번호 사용)")
     ap.add_argument("--db", type=Path, default=ROOT / "data" / "agreements_db.json")
     args = ap.parse_args()
 
     config = yaml.safe_load((ROOT / "config" / "tracked_items.yaml").read_text(encoding="utf-8"))
     meeting = meeting_id_from_folder(args.folder)
-    entries, warnings = parse_chair_notes(args.docx, meeting, args.url, config["items"])
+    agenda = parse_agenda_csv(args.agenda.read_text(encoding="utf-8")) if args.agenda else None
+    entries, warnings = parse_chair_notes(args.docx, meeting, args.url, config["items"], agenda=agenda)
     for w in warnings:
         print(f"경고: {w}")
     db = json.loads(args.db.read_text(encoding="utf-8"))
-    merge_meeting(db, meeting, entries, {"ftp_dir": args.folder, "chair_notes_url": args.url})
+    merge_meeting(db, meeting, entries, {
+        "ftp_dir": args.folder,
+        "chair_notes_url": args.url,
+        "agenda_source": "agenda.csv" if agenda else "chair_notes_numbering",
+        "parser_version": PARSER_VERSION,
+    })
     args.db.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{meeting}: {len(entries)}건 추출 → {args.db}")
     for item_id, n in Counter(e["item"] for e in entries).most_common():

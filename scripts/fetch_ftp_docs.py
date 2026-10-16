@@ -18,7 +18,8 @@ import requests
 BASE_URL = "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
 USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
 DOWNLOAD_DIR = Path(__file__).resolve().parent.parent / "downloads"
-FINAL_CHAIR_NOTES = re.compile(r"Chair notes RAN1#\S+?[ _]eom(\d*)\.(docx|docm|zip)", re.I)
+# 실제 이름 예: '..._eom1.docx', '... eom.zip', '... - eom3.docx', '... - eom_03.docx', '... eom0.zip'
+FINAL_CHAIR_NOTES = re.compile(r"Chair notes RAN1#\S+?(?:\s+-\s+|[ _])eom_?(\d*)\.(docx|docm|zip)", re.I)
 
 
 def http_get(url):
@@ -61,12 +62,28 @@ def find_final_chair_notes(folder, lister=list_dir):
     """(파일 이름, FTP URL) 또는 None."""
     # 3GPP 서버는 없는 폴더에 404가 아니라 403을 돌려줘서 접속 차단과 구분되지 않습니다.
     # 그래서 상위 목록에서 폴더가 있는지 먼저 확인합니다.
-    if "Inbox" not in lister(folder) or "Chair_notes" not in lister(f"{folder}/Inbox"):
+    # 폴더 이름은 회의에 따라 'Chair_notes' 또는 'Chair_Notes'입니다.
+    if "Inbox" not in lister(folder):
         return None
-    name = pick_final_chair_notes(lister(f"{folder}/Inbox/Chair_notes"))
+    sub = next((n for n in lister(f"{folder}/Inbox") if n.lower() == "chair_notes"), None)
+    if not sub:
+        return None
+    name = pick_final_chair_notes(lister(f"{folder}/Inbox/{sub}"))
     if not name:
         return None
-    return name, f"{BASE_URL}{folder}/Inbox/Chair_notes/{quote(name)}"
+    return name, f"{BASE_URL}{folder}/Inbox/{sub}/{quote(name)}"
+
+
+def fetch_agenda_csv(folder, lister=list_dir, getter=None):
+    """공식 agenda.csv 내용(문자열). 없으면 None (RAN1#124 이전 회의에는 없음)."""
+    if "Agenda" not in lister(folder) or "agenda.csv" not in lister(f"{folder}/Agenda"):
+        return None
+    getter = getter or (lambda url: http_get(url).content)
+    raw = getter(f"{BASE_URL}{folder}/Agenda/agenda.csv")
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252")
 
 
 def save_download(name, content, dest_dir):

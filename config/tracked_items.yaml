@@ -81,4 +81,5 @@ items:
 
 # HTML 대시보드 '결정 검색'의 추천 검색어 버튼. 누르면 그 단어로 바로 검색합니다.
 # 검색 자체는 아무 키워드나 입력할 수 있고, 여기에는 팀에서 자주 찾는 단어만 적어 둡니다.
-search_presets: ["DMRS", "PT-RS", "SRS", "CSI-RS", "PDCCH", "codebook"]
+# '|' 또는 대문자 OR로 여러 표기를 함께 찾을 수 있습니다 (예: "DMRS | DM-RS").
+search_presets: ["DMRS | DM-RS", "PT-RS | PTRS", "SRS", "CSI-RS", "PDCCH", "codebook"]

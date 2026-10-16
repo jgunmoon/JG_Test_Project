@@ -170,19 +170,22 @@ SCRIPT = r"""
     }
   }
   function run() {
-    const terms = q.value.trim().split(/\s+/).filter(Boolean);
+    // 'A B | C' 또는 'A B OR C' → (A 그리고 B) 또는 C. 대문자 OR만 연산자로 봅니다.
+    const groups = q.value.trim().split(/\s+OR\s+|\s*\|\s*/).map(g => g.split(/\s+/).filter(Boolean)).filter(g => g.length);
+    const terms = groups.flat();
     const filtered = fItem.value || fMeeting.value || fType.value;
     out.replaceChildren(); shown = 0;
     if (!terms.length && !filtered) {
       summary.textContent = `검색어를 입력하거나 필터를 고르세요. 전체 ${DATA.entries.length.toLocaleString()}건에서 찾습니다.`;
       hits = []; return;
     }
-    const res = terms.map(t => new RegExp(pattern(t, fWord.checked), 'i'));
+    const groupRes = groups.map(g => g.map(t => new RegExp(pattern(t, fWord.checked), 'i')));
+    const has = (e, r) => r.test(e.text) || r.test(e.agenda_title);
     const re = terms.length ? new RegExp(terms.map(t => pattern(t, fWord.checked)).join('|'), 'gi') : null;
     hits = DATA.entries.filter(e =>
       (!fItem.value || e.item === fItem.value) && (!fMeeting.value || e.meeting === fMeeting.value) &&
       (!fType.value || e.type === fType.value) &&
-      res.every(r => r.test(e.text) || r.test(e.agenda_title))).reverse();
+      (!groupRes.length || groupRes.some(g => g.every(r => has(e, r))))).reverse();
     const per = {}; hits.forEach(e => { per[e.meeting] = (per[e.meeting] || 0) + 1; });
     summary.replaceChildren(el('span', 'num', `${hits.length.toLocaleString()}건`),
       hits.length ? ' · 회의별 ' + DATA.meetings.filter(m => per[m]).map(m => `${m.replace('RAN1#', '#')} ${per[m]}`).join(' · ')
@@ -350,7 +353,7 @@ def _search_section(config, db, meetings):
     return f"""<section id="search">
   <h2>결정 검색</h2>
   <div class="search" role="search">
-    <input type="search" id="q" placeholder="예: DMRS, PDCCH REG bundle, codebook Type-II" autocomplete="off"
+    <input type="search" id="q" placeholder="예: DMRS | DM-RS, PDCCH REG bundle, codebook OR precoder" autocomplete="off"
       aria-label="결정 원문과 Agenda 제목에서 찾을 키워드">
     <div class="filters">
       <label>아이템 <select id="f-item"><option value="">전체</option></select></label>
@@ -362,7 +365,8 @@ def _search_section(config, db, meetings):
     <div class="summary-line" id="summary" aria-live="polite"></div>
     <div class="results" id="results"></div>
   </div>
-  <p class="lede">여러 단어를 띄어 쓰면 모두 포함된 결정만 찾습니다. 대소문자는 구분하지 않고, 최신 회의부터 보여줍니다.</p>
+  <p class="lede">띄어 쓰면 모두 포함(AND), <span class="mono">|</span> 또는 대문자 <span class="mono">OR</span>로 나누면 하나라도 포함(OR)된 결정을 찾습니다.
+    예: <span class="mono">PDCCH REG | PT-RS</span>는 "PDCCH와 REG를 모두 포함" 또는 "PT-RS 포함"입니다. 대소문자는 구분하지 않고, 최신 회의부터 보여줍니다.</p>
   <script type="application/json" id="decisions">{_json_for_script(data)}</script>
 </section>"""
 

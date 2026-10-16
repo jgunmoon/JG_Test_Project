@@ -31,9 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -45,6 +45,7 @@ jobs:
         run: python -m pytest -q
 
       - name: Check 3GPP FTP and update
+        shell: bash   # -eo pipefail: tee 뒤에 가려져도 스크립트 오류면 실패로 표시
         env:
           SINCE: ${{ inputs.since }}
           DRY_RUN: ${{ inputs.dry_run }}

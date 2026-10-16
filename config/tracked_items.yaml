@@ -19,10 +19,18 @@ ftp_base_url: "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
 items:
   - id: aiml_air_interface
     name: "AI/ML for NR Air Interface"
-    release: "Rel-19/20"
-    # 9.1 "Artificial Intelligence (AI)/Machine Learning (ML) for NR air interface enhancements",
-    # 8.1 "Maintenance on AI/ML for NR Air interface, ..."
-    keywords: ["Machine Learning (ML)", "Maintenance on AI/ML"]
+    release: "Rel-20"
+    # 9.1 "Artificial Intelligence (AI)/Machine Learning (ML) for NR air interface enhancements"
+    # Rel-19 AI/ML 유지보수(8.1)는 MIMO/NES/NTN과 한 Agenda로 묶여 있어 rel19_maintenance로 따로 모읍니다.
+    keywords: ["Machine Learning (ML)"]
+    owner: ""
+
+  - id: rel19_maintenance
+    name: "Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등)"
+    release: "Rel-19"
+    # 8 "Maintenance on Rel-19 NR and E-UTRA" 전체 (8.1 AI/ML·MIMO·NES·NTN, 8.2 기타, 8.3 UE features)
+    # 대부분 TS 38.211~38.215 등의 TP/CR 승인입니다.
+    keywords: ["Maintenance on Rel-19"]
     owner: ""
 
   - id: csi_prediction

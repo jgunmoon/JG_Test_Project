@@ -8,7 +8,8 @@
 
 | 아이템 | 릴리스 | 신규 Agreement | 신규 Working Assumption | 미결 FFS | 누적 결정 | 상세 |
 |---|---|---|---|---|---|---|
-| AI/ML for NR Air Interface | Rel-19/20 | 20 | 0 | 0 | 23 | [보기](by_item/aiml_air_interface.md) |
+| AI/ML for NR Air Interface | Rel-20 | 4 | 0 | 0 | 4 | [보기](by_item/aiml_air_interface.md) |
+| Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등) | Rel-19 | 27 | 0 | 0 | 33 | [보기](by_item/rel19_maintenance.md) |
 | CSI Acquisition / Prediction | Rel-20 | 39 | 0 | 38 | 40 | [보기](by_item/csi_prediction.md) |
 | Beam Management | Rel-20 | 12 | 0 | 20 | 12 | [보기](by_item/beam_management.md) |
 | Positioning | Rel-20 | 0 | 0 | 0 | 0 | [보기](by_item/positioning.md) |

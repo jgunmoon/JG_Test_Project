@@ -7,7 +7,7 @@ generate_report가 마크다운 리포트와 함께 호출합니다. 외부 스�
 from collections import Counter
 from html import escape
 
-from scripts import delta
+from scripts import delta, topics
 from scripts.generate_report import TYPES, meeting_slug, meeting_sort_key
 
 TITLE = "RAN1 6G PHY Tracker"
@@ -91,6 +91,11 @@ table.matrix th.num { white-space: normal; min-width: 7ch; max-width: 16ch; text
 .basis { font-size: 12px; color: var(--ink-3); }
 .items-list { display: grid; gap: 10px; }
 .agenda-change { margin: 0; font-size: 13px; }
+.topic-nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.topic-nav a { font-size: 13px; padding: 3px 10px; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel); text-decoration: none; }
+.topic-nav a .num { color: var(--ink-3); margin-left: 4px; }
+.cell-text { white-space: pre-line; max-height: 9em; overflow-y: auto; min-width: 24ch; overflow-wrap: anywhere; }
+.counts { font-family: var(--font-data); font-size: 12px; color: var(--ink-3); }
 footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 16px; }
 #tip { position: fixed; pointer-events: none; z-index: 20; background: var(--ink); color: var(--bg);
   font-family: var(--font-data); font-size: 12px; padding: 6px 8px; border-radius: 4px; white-space: pre; }
@@ -100,6 +105,9 @@ footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule)
 
 SCRIPT = """
 (() => {
+  const openHash = () => { const d = location.hash && document.getElementById(location.hash.slice(1));
+    if (d && d.tagName === 'DETAILS') d.open = true; };
+  addEventListener('hashchange', openHash); openHash();
   const tip = document.getElementById('tip');
   const show = (el, x, y) => { tip.textContent = el.dataset.tip; tip.hidden = false;
     const w = tip.offsetWidth, h = tip.offsetHeight;
@@ -233,6 +241,38 @@ def _delta_detail(item, d):
 </details>""" if count or d["agenda_new"] or d["agenda_dropped"] else ""
 
 
+def _topics_section(config, db, meetings, base):
+    names = {i["id"]: i["name"] for i in config["items"]}
+    nav, blocks = [], []
+    for t in config["topics"]:
+        found = topics.entries_for(db, t)
+        per = Counter(e["meeting"] for e in found)
+        nav.append(f'<a href="#topic-{_e(t["id"])}">{_e(t["name"])}<span class="num">{len(found)}</span></a>')
+        counts = " · ".join(f"{_e(_short(m))} {per[m]}" for m in meetings)
+        rows = "".join(
+            f'<tr><td class="mono">{_e(e["meeting"])}</td>'
+            f'<td><span class="mono">{_e(e.get("agenda_item", ""))}</span><br><span class="small muted">{_e(e.get("agenda_title", ""))}</span></td>'
+            f'<td class="small">{_e(names.get(e["item"], e["item"]))}</td><td class="small">{_e(e["type"])}</td>'
+            f'<td><div class="cell-text small">{_e(e["text"])}</div></td><td class="small">{_source(e["source"])}</td></tr>'
+            for e in reversed(found))
+        body = (f'<div class="table-scroll"><table><thead><tr><th>회의</th><th>Agenda</th><th>아이템</th><th>구분</th>'
+                f'<th>내용</th><th>출처</th></tr></thead><tbody>{rows}</tbody></table></div>'
+                if found else '<p class="empty">해당 결정이 없습니다</p>')
+        blocks.append(f"""<details id="topic-{_e(t["id"])}">
+  <summary><h3>{_e(t["name"])}</h3><span class="small muted">{len(found)}건 · 키워드 {_e(", ".join(t["keywords"]))}</span>
+    <span class="counts">{counts}</span></summary>
+  <div class="detail-body">{body}
+    <span class="small">{_link(f"{base}by_topic/{t['id']}.md", "마크다운 리포트")}</span></div>
+</details>""")
+    return f"""<section>
+  <h2>주제별 보기</h2>
+  <p class="lede">Agenda와 관계없이 본문이나 Agenda 제목에 키워드가 나오는 결정을 모았습니다. 한 결정이 여러 주제에 들어갈 수 있습니다.
+    주제는 config/tracked_items.yaml의 topics에 추가합니다.</p>
+  <nav class="topic-nav">{"".join(nav)}</nav>
+  {"".join(blocks)}
+</section>"""
+
+
 def render_body(config, db):
     meetings = sorted({e["meeting"] for e in db["entries"]}, key=meeting_sort_key)
     base = config.get("report_base_url", "")
@@ -278,6 +318,9 @@ def render_body(config, db):
     if details:
         parts.append(f'<section><h2>Delta 상세 <span class="mono muted">{_e(meetings[-2])} → {_e(latest)}</span></h2>'
                      f'<p class="lede">아이템을 열면 원문 문장과 FTP 출처를 나란히 볼 수 있습니다.</p>{details}</section>')
+
+    if config.get("topics"):
+        parts.append(_topics_section(config, db, meetings, base))
 
     head = "".join(f'<th class="num">{_e(item["name"])}</th>' for item in config["items"])
     body = []

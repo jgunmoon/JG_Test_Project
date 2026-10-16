@@ -79,6 +79,8 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
 - 내려받은 원본 문서는 `downloads/`(gitignore)나 임시 폴더에 두고 커밋하지 않습니다.
 
 - `reports/index.html`은 팀 공용 HTML 대시보드입니다 (`scripts/render_html.py`). 상세 리포트 링크는 config의 `report_base_url` 기준입니다.
+- 주제 태그(`config`의 `topics`)는 Agenda와 관계없이 본문 키워드로 결정을 모읍니다 (`scripts/topics.py`, `reports/by_topic/`).
+  한 결정은 아이템 하나에만 속하지만 주제에는 여러 개 속할 수 있습니다.
 - Delta(직전 회의 대비)는 `scripts/delta.py`가 DB에서 계산합니다. FFS 후속 결정은 키워드 매칭 '후보'로만 표시하고 해소됐다고 단정하지 않습니다.
 - `reports/` 아래 파일은 생성물입니다. 직접 수정하지 말고 DB나 설정을 고친 뒤 다시 생성합니다.
 - DB 스키마와 필수 필드(출처 문서 번호, FTP 링크)는 `data/SCHEMA.md`를 따릅니다.

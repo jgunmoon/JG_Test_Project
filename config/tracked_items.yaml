@@ -78,3 +78,20 @@ items:
     # 10 "Rel-20 Study of 6GR" — 위 아이템에 속하지 않는 6GR 결정이 모두 여기로 옵니다.
     keywords: ["6GR"]
     owner: ""
+
+# 주제 태그: Agenda와 관계없이 본문(또는 Agenda 제목)에 키워드가 나오는 결정을 모아
+# HTML 대시보드의 '주제별 보기'와 reports/by_topic/<id>.md로 보여줍니다.
+# 키워드는 단어 단위로, 대소문자 구분 없이 찾습니다. 한 결정이 여러 주제에 들어갈 수 있습니다.
+topics:
+  - id: dmrs
+    name: "DMRS"
+    keywords: ["DMRS", "DM-RS"]
+  - id: ptrs
+    name: "PT-RS"
+    keywords: ["PT-RS", "PTRS"]
+  - id: srs
+    name: "SRS"
+    keywords: ["SRS"]
+  - id: csi_rs
+    name: "CSI-RS"
+    keywords: ["CSI-RS"]

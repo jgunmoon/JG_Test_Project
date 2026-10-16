@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RAN1 6G PHY Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+/* 레이아웃: 요약(직전 회의 대비) → 아이템 카드(작은 막대그래프) → Delta 상세 → 회의 목록 */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --ink: #14181f; --ink-2: #4a5260; --ink-3: #737b88;
+  --rule: #dfe3e9; --accent: #2a78d6; --accent-soft: #b9d2f1; --candidate: #8a5a00; --candidate-bg: #fff3d6;
+  --confirmed: #0d6b3c; --confirmed-bg: #dcf3e6;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11141a; --panel: #181c24; --ink: #eef1f5; --ink-2: #b8c0cc; --ink-3: #8b94a3;
+  --rule: #2a313d; --accent: #3987e5; --accent-soft: #2c4a72; --candidate: #f2c46b; --candidate-bg: #3a2f14;
+  --confirmed: #7fd9a6; --confirmed-bg: #173526; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11141a; --panel: #181c24; --ink: #eef1f5; --ink-2: #b8c0cc; --ink-3: #8b94a3;
+  --rule: #2a313d; --accent: #3987e5; --accent-soft: #2c4a72; --candidate: #f2c46b; --candidate-bg: #3a2f14;
+  --confirmed: #7fd9a6; --confirmed-bg: #173526; color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; margin: 0; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.25; }
+h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 19px; font-weight: 600; }
+h3 { font-size: 15px; font-weight: 600; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, summary:focus-visible, .bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-family: var(--font-data); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.mono, .num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-2); }
+.small { font-size: 13px; }
+header { display: grid; gap: 10px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 4px 0 0; }
+.facts div { display: grid; gap: 2px; }
+.facts dt { font-size: 12px; color: var(--ink-3); }
+.facts dd { margin: 0; font-family: var(--font-data); font-size: 18px; font-variant-numeric: tabular-nums; }
+section { display: grid; gap: 14px; min-width: 0; }
+.lede { margin: 0; max-width: 68ch; color: var(--ink-2); font-size: 14px; }
+.table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-size: 12px; font-weight: 600; color: var(--ink-3); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; white-space: nowrap; }
+.zero { color: var(--ink-3); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; display: grid; gap: 10px; min-width: 0; }
+.card-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.card-head .rel { font-family: var(--font-data); font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stats div { display: grid; gap: 1px; }
+.stats dt { font-size: 11px; color: var(--ink-3); }
+.stats dd { margin: 0; font-family: var(--font-data); font-size: 17px; font-variant-numeric: tabular-nums; }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart text { fill: var(--ink-3); font-family: var(--font-data); font-size: 10px; }
+svg.chart .grid { stroke: var(--rule); stroke-width: 1; }
+svg.chart .bar path { fill: var(--accent-soft); }
+svg.chart .bar.latest path { fill: var(--accent); }
+svg.chart .bar .hit { fill: transparent; }
+svg.chart text.val { fill: var(--ink); font-size: 11px; }
+.card-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; flex-wrap: wrap; }
+.empty { color: var(--ink-3); font-size: 13px; padding: 20px 0; text-align: center; border: 1px dashed var(--rule); border-radius: 6px; }
+details { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; }
+details > summary { cursor: pointer; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+details > summary h3 { display: inline; }
+details[open] > summary { border-bottom: 1px solid var(--rule); }
+.detail-body { padding: 14px 16px; display: grid; gap: 16px; min-width: 0; }
+.chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.chip.candidate { color: var(--candidate); background: var(--candidate-bg); }
+.chip.confirmed { color: var(--confirmed); background: var(--confirmed-bg); }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
+.quote { margin: 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; font-size: 13px; overflow-wrap: anywhere; min-width: 0; display: grid; gap: 6px; }
+.quote .text { white-space: pre-line; max-height: 14em; overflow-y: auto; }
+.quote .src { font-size: 12px; }
+table.matrix th.num { white-space: normal; min-width: 7ch; max-width: 16ch; text-align: right; }
+.basis { font-size: 12px; color: var(--ink-3); }
+.items-list { display: grid; gap: 10px; }
+.agenda-change { margin: 0; font-size: 13px; }
+footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 16px; }
+#tip { position: fixed; pointer-events: none; z-index: 20; background: var(--ink); color: var(--bg);
+  font-family: var(--font-data); font-size: 12px; padding: 6px 8px; border-radius: 4px; white-space: pre; }
+@media (max-width: 520px) { h1 { font-size: 24px; } .stats { grid-template-columns: repeat(2, 1fr); } }
+@media (prefers-reduced-motion: no-preference) { details > summary { transition: background-color .15s; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+<header>
+  <span class="eyebrow">3GPP TSG RAN WG1 · Chair notes 기준</span>
+  <h1>RAN1 6G PHY Tracker</h1>
+  <dl class="facts">
+    <div><dt>최신 회의</dt><dd>RAN1#126</dd></div>
+    <div><dt>추적 범위</dt><dd>RAN1#122 – 126 (7회)</dd></div>
+    <div><dt>누적 결정</dt><dd>1,660</dd></div>
+  </dl>
+</header>
+<section>
+  <h2>직전 회의 대비 <span class="mono muted">RAN1#125 → RAN1#126</span></h2>
+  <p class="lede">WA 확정은 합의 원문에 "Confirm … working assumption" 문구가 있는 경우입니다.
+    FFS 후속 결정 후보는 직전 회의 FFS와 키워드가 겹치는 같은 Agenda의 결정을 자동으로 찾은 것이라, 해소 여부는 원문으로 확인해야 합니다.</p>
+  <div class="table-scroll"><table>
+    <thead><tr><th>아이템</th><th class="num">신규 결정</th><th class="num">WA 확정</th><th class="num">직전 FFS</th>
+      <th class="num">FFS 후속 후보</th><th class="num">Agenda 신설 / 제외</th></tr></thead>
+    <tbody><tr><td>AI/ML for NR Air Interface</td><td class="num">4</td><td class="num zero">0</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">+0 / −0</td></tr><tr><td>Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등)</td><td class="num">33</td><td class="num zero">0</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">+0 / −0</td></tr><tr><td>CSI Acquisition / Prediction</td><td class="num">40</td><td class="num zero">0</td><td class="num">8</td><td class="num">2</td><td class="num">+0 / −0</td></tr><tr><td>Beam Management</td><td class="num">12</td><td class="num zero">0</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">+0 / −0</td></tr><tr><td>Positioning</td><td class="num zero">0</td><td class="num zero">0</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">+0 / −0</td></tr><tr><td>ISAC</td><td class="num">28</td><td class="num zero">0</td><td class="num">17</td><td class="num">7</td><td class="num">+0 / −0</td></tr><tr><td>6G Study Item (6GR, 기타)</td><td class="num">138</td><td class="num">1</td><td class="num">53</td><td class="num">7</td><td class="num">+6 / −2</td></tr></tbody>
+  </table></div>
+</section>
+<section><h2>아이템별 현황</h2><div class="cards"><article class="card">
+  <div class="card-head"><h3>AI/ML for NR Air Interface</h3><span class="rel">Rel-20</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>4</dd></div>
+    <div><dt>WA</dt><dd>0</dd></div>
+    <div><dt>미결 FFS</dt><dd>0</dd></div>
+    <div><dt>누적 결정</dt><dd>32</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <svg class="chart" viewBox="0 0 300 110" role="img" aria-label="AI/ML for NR Air Interface 회의별 결정 수 (최대 6건)"><line class="grid" x1="26" x2="300" y1="14" y2="14"/><line class="grid" x1="26" x2="300" y1="92" y2="92"/><text x="22" y="17" text-anchor="end">6</text><text x="22" y="95" text-anchor="end">0</text><g class="bar" tabindex="0" data-tip="RAN1#122: 결정 6건
+Agreement 6 / WA 0 / Conclusion 0
+미결 FFS 11"><title>RAN1#122: 결정 6건
+Agreement 6 / WA 0 / Conclusion 0
+미결 FFS 11</title><rect class="hit" x="26.0" y="14" width="39.1" height="96.0"/><path d="M33.8,92 V18.0 Q33.8,14.0 37.8,14.0 H53.3 Q57.3,14.0 57.3,18.0 V92 Z"/></g><text x="45.6" y="106" text-anchor="middle">122</text><g class="bar" tabindex="0" data-tip="RAN1#122bis: 결정 3건
+Agreement 2 / WA 0 / Conclusion 1
+미결 FFS 5"><title>RAN1#122bis: 결정 3건
+Agreement 2 / WA 0 / Conclusion 1
+미결 FFS 5</title><rect class="hit" x="65.1" y="14" width="39.1" height="96.0"/><path d="M73.0,92 V57.0 Q73.0,53.0 77.0,53.0 H92.5 Q96.5,53.0 96.5,57.0 V92 Z"/></g><text x="84.7" y="106" text-anchor="middle">122b</text><g class="bar" tabindex="0" data-tip="RAN1#123: 결정 5건
+Agreement 5 / WA 0 / Conclusion 0
+미결 FFS 6"><title>RAN1#123: 결정 5건
+Agreement 5 / WA 0 / Conclusion 0
+미결 FFS 6</title><rect class="hit" x="104.3" y="14" width="39.1" height="96.0"/><path d="M112.1,92 V31.0 Q112.1,27.0 116.1,27.0 H131.6 Q135.6,27.0 135.6,31.0 V92 Z"/></g><text x="123.9" y="106" text-anchor="middle">123</text><g class="bar" tabindex="0" data-tip="RAN1#124: 결정 6건
+Agreement 5 / WA 0 / Conclusion 1
+미결 FFS 1"><title>RAN1#124: 결정 6건
+Agreement 5 / WA 0 / Conclusion 1
+미결 FFS 1</title><rect class="hit" x="143.4" y="14" width="39.1" height="96.0"/><path d="M151.3,92 V18.0 Q151.3,14.0 155.3,14.0 H170.7 Q174.7,14.0 174.7,18.0 V92 Z"/></g><text x="163.0" y="106" text-anchor="middle">124</text><g class="bar" tabindex="0" data-tip="RAN1#124bis: 결정 3건
+Agreement 3 / WA 0 / Conclusion 0
+미결 FFS 1"><title>RAN1#124bis: 결정 3건
+Agreement 3 / WA 0 / Conclusion 0
+미결 FFS 1</title><rect class="hit" x="182.6" y="14" width="39.1" height="96.0"/><path d="M190.4,92 V57.0 Q190.4,53.0 194.4,53.0 H209.9 Q213.9,53.0 213.9,57.0 V92 Z"/></g><text x="202.1" y="106" text-anchor="middle">124b</text><g class="bar" tabindex="0" data-tip="RAN1#125: 결정 5건
+Agreement 5 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#125: 결정 5건
+Agreement 5 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="221.7" y="14" width="39.1" height="96.0"/><path d="M229.5,92 V31.0 Q229.5,27.0 233.5,27.0 H249.0 Q253.0,27.0 253.0,31.0 V92 Z"/></g><text x="241.3" y="106" text-anchor="middle">125</text><g class="bar latest" tabindex="0" data-tip="RAN1#126: 결정 4건
+Agreement 4 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#126: 결정 4건
+Agreement 4 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="260.9" y="14" width="39.1" height="96.0"/><path d="M268.7,92 V44.0 Q268.7,40.0 272.7,40.0 H288.2 Q292.2,40.0 292.2,44.0 V92 Z"/></g><text x="280.4" y="106" text-anchor="middle">126</text><text class="val" x="280.4" y="36.0" text-anchor="middle">4</text></svg>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/aiml_air_interface.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article><article class="card">
+  <div class="card-head"><h3>Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등)</h3><span class="rel">Rel-19</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>27</dd></div>
+    <div><dt>WA</dt><dd>0</dd></div>
+    <div><dt>미결 FFS</dt><dd>0</dd></div>
+    <div><dt>누적 결정</dt><dd>630</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <svg class="chart" viewBox="0 0 300 110" role="img" aria-label="Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등) 회의별 결정 수 (최대 218건)"><line class="grid" x1="26" x2="300" y1="14" y2="14"/><line class="grid" x1="26" x2="300" y1="92" y2="92"/><text x="22" y="17" text-anchor="end">218</text><text x="22" y="95" text-anchor="end">0</text><g class="bar" tabindex="0" data-tip="RAN1#122: 결정 218건
+Agreement 193 / WA 2 / Conclusion 23
+미결 FFS 1"><title>RAN1#122: 결정 218건
+Agreement 193 / WA 2 / Conclusion 23
+미결 FFS 1</title><rect class="hit" x="26.0" y="14" width="39.1" height="96.0"/><path d="M33.8,92 V18.0 Q33.8,14.0 37.8,14.0 H53.3 Q57.3,14.0 57.3,18.0 V92 Z"/></g><text x="45.6" y="106" text-anchor="middle">122</text><g class="bar" tabindex="0" data-tip="RAN1#122bis: 결정 142건
+Agreement 118 / WA 0 / Conclusion 24
+미결 FFS 3"><title>RAN1#122bis: 결정 142건
+Agreement 118 / WA 0 / Conclusion 24
+미결 FFS 3</title><rect class="hit" x="65.1" y="14" width="39.1" height="96.0"/><path d="M73.0,92 V45.2 Q73.0,41.2 77.0,41.2 H92.5 Q96.5,41.2 96.5,45.2 V92 Z"/></g><text x="84.7" y="106" text-anchor="middle">122b</text><g class="bar" tabindex="0" data-tip="RAN1#123: 결정 100건
+Agreement 79 / WA 0 / Conclusion 21
+미결 FFS 2"><title>RAN1#123: 결정 100건
+Agreement 79 / WA 0 / Conclusion 21
+미결 FFS 2</title><rect class="hit" x="104.3" y="14" width="39.1" height="96.0"/><path d="M112.1,92 V60.2 Q112.1,56.2 116.1,56.2 H131.6 Q135.6,56.2 135.6,60.2 V92 Z"/></g><text x="123.9" y="106" text-anchor="middle">123</text><g class="bar" tabindex="0" data-tip="RAN1#124: 결정 62건
+Agreement 55 / WA 0 / Conclusion 7
+미결 FFS 0"><title>RAN1#124: 결정 62건
+Agreement 55 / WA 0 / Conclusion 7
+미결 FFS 0</title><rect class="hit" x="143.4" y="14" width="39.1" height="96.0"/><path d="M151.3,92 V73.8 Q151.3,69.8 155.3,69.8 H170.7 Q174.7,69.8 174.7,73.8 V92 Z"/></g><text x="163.0" y="106" text-anchor="middle">124</text><g class="bar" tabindex="0" data-tip="RAN1#124bis: 결정 54건
+Agreement 45 / WA 0 / Conclusion 9
+미결 FFS 0"><title>RAN1#124bis: 결정 54건
+Agreement 45 / WA 0 / Conclusion 9
+미결 FFS 0</title><rect class="hit" x="182.6" y="14" width="39.1" height="96.0"/><path d="M190.4,92 V76.7 Q190.4,72.7 194.4,72.7 H209.9 Q213.9,72.7 213.9,76.7 V92 Z"/></g><text x="202.1" y="106" text-anchor="middle">124b</text><g class="bar" tabindex="0" data-tip="RAN1#125: 결정 21건
+Agreement 15 / WA 0 / Conclusion 6
+미결 FFS 0"><title>RAN1#125: 결정 21건
+Agreement 15 / WA 0 / Conclusion 6
+미결 FFS 0</title><rect class="hit" x="221.7" y="14" width="39.1" height="96.0"/><path d="M229.5,92 V88.2 Q229.5,84.5 233.3,84.5 H249.3 Q253.0,84.5 253.0,88.2 V92 Z"/></g><text x="241.3" y="106" text-anchor="middle">125</text><g class="bar latest" tabindex="0" data-tip="RAN1#126: 결정 33건
+Agreement 27 / WA 0 / Conclusion 6
+미결 FFS 0"><title>RAN1#126: 결정 33건
+Agreement 27 / WA 0 / Conclusion 6
+미결 FFS 0</title><rect class="hit" x="260.9" y="14" width="39.1" height="96.0"/><path d="M268.7,92 V84.2 Q268.7,80.2 272.7,80.2 H288.2 Q292.2,80.2 292.2,84.2 V92 Z"/></g><text x="280.4" y="106" text-anchor="middle">126</text><text class="val" x="280.4" y="76.2" text-anchor="middle">33</text></svg>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/rel19_maintenance.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article><article class="card">
+  <div class="card-head"><h3>CSI Acquisition / Prediction</h3><span class="rel">Rel-20</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>39</dd></div>
+    <div><dt>WA</dt><dd>0</dd></div>
+    <div><dt>미결 FFS</dt><dd>38</dd></div>
+    <div><dt>누적 결정</dt><dd>214</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <svg class="chart" viewBox="0 0 300 110" role="img" aria-label="CSI Acquisition / Prediction 회의별 결정 수 (최대 45건)"><line class="grid" x1="26" x2="300" y1="14" y2="14"/><line class="grid" x1="26" x2="300" y1="92" y2="92"/><text x="22" y="17" text-anchor="end">45</text><text x="22" y="95" text-anchor="end">0</text><g class="bar" tabindex="0" data-tip="RAN1#122: 결정 18건
+Agreement 18 / WA 0 / Conclusion 0
+미결 FFS 21"><title>RAN1#122: 결정 18건
+Agreement 18 / WA 0 / Conclusion 0
+미결 FFS 21</title><rect class="hit" x="26.0" y="14" width="39.1" height="96.0"/><path d="M33.8,92 V64.8 Q33.8,60.8 37.8,60.8 H53.3 Q57.3,60.8 57.3,64.8 V92 Z"/></g><text x="45.6" y="106" text-anchor="middle">122</text><g class="bar" tabindex="0" data-tip="RAN1#122bis: 결정 22건
+Agreement 22 / WA 0 / Conclusion 0
+미결 FFS 17"><title>RAN1#122bis: 결정 22건
+Agreement 22 / WA 0 / Conclusion 0
+미결 FFS 17</title><rect class="hit" x="65.1" y="14" width="39.1" height="96.0"/><path d="M73.0,92 V57.9 Q73.0,53.9 77.0,53.9 H92.5 Q96.5,53.9 96.5,57.9 V92 Z"/></g><text x="84.7" y="106" text-anchor="middle">122b</text><g class="bar" tabindex="0" data-tip="RAN1#123: 결정 20건
+Agreement 14 / WA 1 / Conclusion 5
+미결 FFS 14"><title>RAN1#123: 결정 20건
+Agreement 14 / WA 1 / Conclusion 5
+미결 FFS 14</title><rect class="hit" x="104.3" y="14" width="39.1" height="96.0"/><path d="M112.1,92 V61.3 Q112.1,57.3 116.1,57.3 H131.6 Q135.6,57.3 135.6,61.3 V92 Z"/></g><text x="123.9" y="106" text-anchor="middle">123</text><g class="bar" tabindex="0" data-tip="RAN1#124: 결정 33건
+Agreement 29 / WA 0 / Conclusion 4
+미결 FFS 10"><title>RAN1#124: 결정 33건
+Agreement 29 / WA 0 / Conclusion 4
+미결 FFS 10</title><rect class="hit" x="143.4" y="14" width="39.1" height="96.0"/><path d="M151.3,92 V38.8 Q151.3,34.8 155.3,34.8 H170.7 Q174.7,34.8 174.7,38.8 V92 Z"/></g><text x="163.0" y="106" text-anchor="middle">124</text><g class="bar" tabindex="0" data-tip="RAN1#124bis: 결정 45건
+Agreement 45 / WA 0 / Conclusion 0
+미결 FFS 6"><title>RAN1#124bis: 결정 45건
+Agreement 45 / WA 0 / Conclusion 0
+미결 FFS 6</title><rect class="hit" x="182.6" y="14" width="39.1" height="96.0"/><path d="M190.4,92 V18.0 Q190.4,14.0 194.4,14.0 H209.9 Q213.9,14.0 213.9,18.0 V92 Z"/></g><text x="202.1" y="106" text-anchor="middle">124b</text><g class="bar" tabindex="0" data-tip="RAN1#125: 결정 36건
+Agreement 36 / WA 0 / Conclusion 0
+미결 FFS 8"><title>RAN1#125: 결정 36건
+Agreement 36 / WA 0 / Conclusion 0
+미결 FFS 8</title><rect class="hit" x="221.7" y="14" width="39.1" height="96.0"/><path d="M229.5,92 V33.6 Q229.5,29.6 233.5,29.6 H249.0 Q253.0,29.6 253.0,33.6 V92 Z"/></g><text x="241.3" y="106" text-anchor="middle">125</text><g class="bar latest" tabindex="0" data-tip="RAN1#126: 결정 40건
+Agreement 39 / WA 0 / Conclusion 1
+미결 FFS 38"><title>RAN1#126: 결정 40건
+Agreement 39 / WA 0 / Conclusion 1
+미결 FFS 38</title><rect class="hit" x="260.9" y="14" width="39.1" height="96.0"/><path d="M268.7,92 V26.7 Q268.7,22.7 272.7,22.7 H288.2 Q292.2,22.7 292.2,26.7 V92 Z"/></g><text x="280.4" y="106" text-anchor="middle">126</text><text class="val" x="280.4" y="18.7" text-anchor="middle">40</text></svg>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/csi_prediction.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article><article class="card">
+  <div class="card-head"><h3>Beam Management</h3><span class="rel">Rel-20</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>12</dd></div>
+    <div><dt>WA</dt><dd>0</dd></div>
+    <div><dt>미결 FFS</dt><dd>20</dd></div>
+    <div><dt>누적 결정</dt><dd>38</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <svg class="chart" viewBox="0 0 300 110" role="img" aria-label="Beam Management 회의별 결정 수 (최대 13건)"><line class="grid" x1="26" x2="300" y1="14" y2="14"/><line class="grid" x1="26" x2="300" y1="92" y2="92"/><text x="22" y="17" text-anchor="end">13</text><text x="22" y="95" text-anchor="end">0</text><g class="bar" tabindex="0" data-tip="RAN1#122: 결정 0건
+Agreement 0 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#122: 결정 0건
+Agreement 0 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="26.0" y="14" width="39.1" height="96.0"/></g><text x="45.6" y="106" text-anchor="middle">122</text><g class="bar" tabindex="0" data-tip="RAN1#122bis: 결정 0건
+Agreement 0 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#122bis: 결정 0건
+Agreement 0 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="65.1" y="14" width="39.1" height="96.0"/></g><text x="84.7" y="106" text-anchor="middle">122b</text><g class="bar" tabindex="0" data-tip="RAN1#123: 결정 0건
+Agreement 0 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#123: 결정 0건
+Agreement 0 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="104.3" y="14" width="39.1" height="96.0"/></g><text x="123.9" y="106" text-anchor="middle">123</text><g class="bar" tabindex="0" data-tip="RAN1#124: 결정 4건
+Agreement 4 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#124: 결정 4건
+Agreement 4 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="143.4" y="14" width="39.1" height="96.0"/><path d="M151.3,92 V72.0 Q151.3,68.0 155.3,68.0 H170.7 Q174.7,68.0 174.7,72.0 V92 Z"/></g><text x="163.0" y="106" text-anchor="middle">124</text><g class="bar" tabindex="0" data-tip="RAN1#124bis: 결정 9건
+Agreement 9 / WA 0 / Conclusion 0
+미결 FFS 1"><title>RAN1#124bis: 결정 9건
+Agreement 9 / WA 0 / Conclusion 0
+미결 FFS 1</title><rect class="hit" x="182.6" y="14" width="39.1" height="96.0"/><path d="M190.4,92 V42.0 Q190.4,38.0 194.4,38.0 H209.9 Q213.9,38.0 213.9,42.0 V92 Z"/></g><text x="202.1" y="106" text-anchor="middle">124b</text><g class="bar" tabindex="0" data-tip="RAN1#125: 결정 13건
+Agreement 13 / WA 0 / Conclusion 0
+미결 FFS 0"><title>RAN1#125: 결정 13건
+Agreement 13 / WA 0 / Conclusion 0
+미결 FFS 0</title><rect class="hit" x="221.7" y="14" width="39.1" height="96.0"/><path d="M229.5,92 V18.0 Q229.5,14.0 233.5,14.0 H249.0 Q253.0,14.0 253.0,18.0 V92 Z"/></g><text x="241.3" y="106" text-anchor="middle">125</text><g class="bar latest" tabindex="0" data-tip="RAN1#126: 결정 12건
+Agreement 12 / WA 0 / Conclusion 0
+미결 FFS 20"><title>RAN1#126: 결정 12건
+Agreement 12 / WA 0 / Conclusion 0
+미결 FFS 20</title><rect class="hit" x="260.9" y="14" width="39.1" height="96.0"/><path d="M268.7,92 V24.0 Q268.7,20.0 272.7,20.0 H288.2 Q292.2,20.0 292.2,24.0 V92 Z"/></g><text x="280.4" y="106" text-anchor="middle">126</text><text class="val" x="280.4" y="16.0" text-anchor="middle">12</text></svg>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/beam_management.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article><article class="card">
+  <div class="card-head"><h3>Positioning</h3><span class="rel">Rel-20</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>0</dd></div>
+    <div><dt>WA</dt><dd>0</dd></div>
+    <div><dt>미결 FFS</dt><dd>0</dd></div>
+    <div><dt>누적 결정</dt><dd>0</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <div class="empty">아직 기록된 결정이 없습니다</div>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/positioning.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article><article class="card">
+  <div class="card-head"><h3>ISAC</h3><span class="rel">Rel-20</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>18</dd></div>
+    <div><dt>WA</dt><dd>3</dd></div>
+    <div><dt>미결 FFS</dt><dd>31</dd></div>
+    <div><dt>누적 결정</dt><dd>127</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <svg class="chart" viewBox="0 0 300 110" role="img" aria-label="ISAC 회의별 결정 수 (최대 29건)"><line class="grid" x1="26" x2="300" y1="14" y2="14"/><line class="grid" x1="26" x2="300" y1="92" y2="92"/><text x="22" y="17" text-anchor="end">29</text><text x="22" y="95" text-anchor="end">0</text><g class="bar" tabindex="0" data-tip="RAN1#122: 결정 8건
+Agreement 8 / WA 0 / Conclusion 0
+미결 FFS 1"><title>RAN1#122: 결정 8건
+Agreement 8 / WA 0 / Conclusion 0
+미결 FFS 1</title><rect class="hit" x="26.0" y="14" width="39.1" height="96.0"/><path d="M33.8,92 V74.5 Q33.8,70.5 37.8,70.5 H53.3 Q57.3,70.5 57.3,74.5 V92 Z"/></g><text x="45.6" y="106" text-anchor="middle">122</text><g class="bar" tabindex="0" data-tip="RAN1#122bis: 결정 15건
+Agreement 14 / WA 0 / Conclusion 1
+미결 FFS 0"><title>RAN1#122bis: 결정 15건
+Agreement 14 / WA 0 / Conclusion 1
+미결 FFS 0</title><rect class="hit" x="65.1" y="14" width="39.1" height="96.0"/><path d="M73.0,92 V55.7 Q73.0,51.7 77.0,51.7 H92.5 Q96.5,51.7 96.5,55.7 V92 Z"/></g><text x="84.7" y="106" text-anchor="middle">122b</text><g class="bar" tabindex="0" data-tip="RAN1#123: 결정 10건
+Agreement 9 / WA 0 / Conclusion 1
+미결 FFS 2"><title>RAN1#123: 결정 10건
+Agreement 9 / WA 0 / Conclusion 1
+미결 FFS 2</title><rect class="hit" x="104.3" y="14" width="39.1" height="96.0"/><path d="M112.1,92 V69.1 Q112.1,65.1 116.1,65.1 H131.6 Q135.6,65.1 135.6,69.1 V92 Z"/></g><text x="123.9" y="106" text-anchor="middle">123</text><g class="bar" tabindex="0" data-tip="RAN1#124: 결정 23건
+Agreement 21 / WA 0 / Conclusion 2
+미결 FFS 0"><title>RAN1#124: 결정 23건
+Agreement 21 / WA 0 / Conclusion 2
+미결 FFS 0</title><rect class="hit" x="143.4" y="14" width="39.1" height="96.0"/><path d="M151.3,92 V34.1 Q151.3,30.1 155.3,30.1 H170.7 Q174.7,30.1 174.7,34.1 V92 Z"/></g><text x="163.0" y="106" text-anchor="middle">124</text><g class="bar" tabindex="0" data-tip="RAN1#124bis: 결정 14건
+Agreement 12 / WA 1 / Conclusion 1
+미결 FFS 0"><title>RAN1#124bis: 결정 14건
+Agreement 12 / WA 1 / Conclusion 1
+미결 FFS 0</title><rect class="hit" x="182.6" y="14" width="39.1" height="96.0"/><path d="M190.4,92 V58.3 Q190.4,54.3 194.4,54.3 H209.9 Q213.9,54.3 213.9,58.3 V92 Z"/></g><text x="202.1" y="106" text-anchor="middle">124b</text><g class="bar" tabindex="0" data-tip="RAN1#125: 결정 29건
+Agreement 29 / WA 0 / Conclusion 0
+미결 FFS 17"><title>RAN1#125: 결정 29건
+Agreement 29 / WA 0 / Conclusion 0
+미결 FFS 17</title><rect class="hit" x="221.7" y="14" width="39.1" height="96.0"/><path d="M229.5,92 V18.0 Q229.5,14.0 233.5,14.0 H249.0 Q253.0,14.0 253.0,18.0 V92 Z"/></g><text x="241.3" y="106" text-anchor="middle">125</text><g class="bar latest" tabindex="0" data-tip="RAN1#126: 결정 28건
+Agreement 18 / WA 3 / Conclusion 7
+미결 FFS 31"><title>RAN1#126: 결정 28건
+Agreement 18 / WA 3 / Conclusion 7
+미결 FFS 31</title><rect class="hit" x="260.9" y="14" width="39.1" height="96.0"/><path d="M268.7,92 V20.7 Q268.7,16.7 272.7,16.7 H288.2 Q292.2,16.7 292.2,20.7 V92 Z"/></g><text x="280.4" y="106" text-anchor="middle">126</text><text class="val" x="280.4" y="12.7" text-anchor="middle">28</text></svg>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/isac.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article><article class="card">
+  <div class="card-head"><h3>6G Study Item (6GR, 기타)</h3><span class="rel">Rel-20</span></div>
+  <dl class="stats">
+    <div><dt>Agreement</dt><dd>126</dd></div>
+    <div><dt>WA</dt><dd>6</dd></div>
+    <div><dt>미결 FFS</dt><dd>68</dd></div>
+    <div><dt>누적 결정</dt><dd>619</dd></div>
+  </dl>
+  <span class="basis">앞의 세 값은 RAN1#126 기준, 누적은 122부터</span>
+  <svg class="chart" viewBox="0 0 300 110" role="img" aria-label="6G Study Item (6GR, 기타) 회의별 결정 수 (최대 138건)"><line class="grid" x1="26" x2="300" y1="14" y2="14"/><line class="grid" x1="26" x2="300" y1="92" y2="92"/><text x="22" y="17" text-anchor="end">138</text><text x="22" y="95" text-anchor="end">0</text><g class="bar" tabindex="0" data-tip="RAN1#122: 결정 25건
+Agreement 23 / WA 0 / Conclusion 2
+미결 FFS 13"><title>RAN1#122: 결정 25건
+Agreement 23 / WA 0 / Conclusion 2
+미결 FFS 13</title><rect class="hit" x="26.0" y="14" width="39.1" height="96.0"/><path d="M33.8,92 V81.9 Q33.8,77.9 37.8,77.9 H53.3 Q57.3,77.9 57.3,81.9 V92 Z"/></g><text x="45.6" y="106" text-anchor="middle">122</text><g class="bar" tabindex="0" data-tip="RAN1#122bis: 결정 43건
+Agreement 41 / WA 1 / Conclusion 1
+미결 FFS 19"><title>RAN1#122bis: 결정 43건
+Agreement 41 / WA 1 / Conclusion 1
+미결 FFS 19</title><rect class="hit" x="65.1" y="14" width="39.1" height="96.0"/><path d="M73.0,92 V71.7 Q73.0,67.7 77.0,67.7 H92.5 Q96.5,67.7 96.5,71.7 V92 Z"/></g><text x="84.7" y="106" text-anchor="middle">122b</text><g class="bar" tabindex="0" data-tip="RAN1#123: 결정 49건
+Agreement 46 / WA 1 / Conclusion 2
+미결 FFS 24"><title>RAN1#123: 결정 49건
+Agreement 46 / WA 1 / Conclusion 2
+미결 FFS 24</title><rect class="hit" x="104.3" y="14" width="39.1" height="96.0"/><path d="M112.1,92 V68.3 Q112.1,64.3 116.1,64.3 H131.6 Q135.6,64.3 135.6,68.3 V92 Z"/></g><text x="123.9" y="106" text-anchor="middle">123</text><g class="bar" tabindex="0" data-tip="RAN1#124: 결정 107건
+Agreement 98 / WA 2 / Conclusion 7
+미결 FFS 27"><title>RAN1#124: 결정 107건
+Agreement 98 / WA 2 / Conclusion 7
+미결 FFS 27</title><rect class="hit" x="143.4" y="14" width="39.1" height="96.0"/><path d="M151.3,92 V35.5 Q151.3,31.5 155.3,31.5 H170.7 Q174.7,31.5 174.7,35.5 V92 Z"/></g><text x="163.0" y="106" text-anchor="middle">124</text><g class="bar" tabindex="0" data-tip="RAN1#124bis: 결정 121건
+Agreement 114 / WA 3 / Conclusion 4
+미결 FFS 19"><title>RAN1#124bis: 결정 121건
+Agreement 114 / WA 3 / Conclusion 4
+미결 FFS 19</title><rect class="hit" x="182.6" y="14" width="39.1" height="96.0"/><path d="M190.4,92 V27.6 Q190.4,23.6 194.4,23.6 H209.9 Q213.9,23.6 213.9,27.6 V92 Z"/></g><text x="202.1" y="106" text-anchor="middle">124b</text><g class="bar" tabindex="0" data-tip="RAN1#125: 결정 136건
+Agreement 122 / WA 7 / Conclusion 7
+미결 FFS 53"><title>RAN1#125: 결정 136건
+Agreement 122 / WA 7 / Conclusion 7
+미결 FFS 53</title><rect class="hit" x="221.7" y="14" width="39.1" height="96.0"/><path d="M229.5,92 V19.1 Q229.5,15.1 233.5,15.1 H249.0 Q253.0,15.1 253.0,19.1 V92 Z"/></g><text x="241.3" y="106" text-anchor="middle">125</text><g class="bar latest" tabindex="0" data-tip="RAN1#126: 결정 138건
+Agreement 126 / WA 6 / Conclusion 6
+미결 FFS 68"><title>RAN1#126: 결정 138건
+Agreement 126 / WA 6 / Conclusion 6
+미결 FFS 68</title><rect class="hit" x="260.9" y="14" width="39.1" height="96.0"/><path d="M268.7,92 V18.0 Q268.7,14.0 272.7,14.0 H288.2 Q292.2,14.0 292.2,18.0 V92 Z"/></g><text x="280.4" y="106" text-anchor="middle">126</text><text class="val" x="280.4" y="10.0" text-anchor="middle">138</text></svg>
+  <div class="card-foot"><span class="muted">회의별 결정 수 · 막대에 올리면 구분별 건수</span>
+    <a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_item/sixg_study.md" target="_blank" rel="noopener">상세 리포트</a></div>
+</article></div></section>
+<section><h2>Delta 상세 <span class="mono muted">RAN1#125 → RAN1#126</span></h2><p class="lede">아이템을 열면 원문 문장과 FTP 출처를 나란히 볼 수 있습니다.</p><details>
+  <summary><h3>CSI Acquisition / Prediction</h3><span class="small muted">WA 확정 0 ·
+    FFS 후속 후보 2 · Agenda +0/−0</span></summary>
+  <div class="detail-body"><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Aspects of downlink-based CSI acquisition · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS on other basis, e.g., for near field, basis combined from DFT beams/port selection, and non-orthogonal DFT basis</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <span class="mono">[125-R20-6GR-Aspects of DL based CSI acquisition]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For the 6GR codebook design for CSI report, study a W1W2 only structure for the low-resolution scheme with the following considerations at least for RI=1-4:
+- W1-structure
+  - SD basis
+    - NR oversampled 2D-DFT basis is a baseline
+      - FFS on other basis, e.g., basis constructed from combined 2D DFT beams
+      - FFS on alphabet set for combination coefficients for the basis constructed from combined 2D DFT beams
+  - SD basis selection
+    - eType-I Scheme-B like unrestricted orthogonal DFT beam selection in 2D direction is a baseline
+      - FFS on orthogonal basis selection in at least 1D direction, or non-orthogonal basis selection
+    - Layer-specific/layer-group-specific SD basis selection
+      - FFS on basis-to-layer (layer-group) mapping, e.g., ordering or no ordering
+      - FFS on the maximum number of SD basis vector selection
+- W2-structure
+  - Layer-specific/layer-group-specific inter-polarization co-phase selection
+    - FFS: inter-polarization amplitude
+  - Alphabet set for inter-polarization co-phase: BPSK, QPSK
+    - FFS: details for each rank
+    - FFS: for WB, whether to consider or not 8-PSK in addition to BPSK and QPSK
+- FFS on RI&gt;4
+- Strive for having a unified codebook scheme for all supported ranks by 6G
+- FFS: details on whether/how to accommodate passive array with smaller number of ports
+- Note: UE implementation complexity is to be considered in the design of SD-basis and co-phasing selection, including the number of candidate combinations and the associated search complexity.
+- Note: CBSR discussion will be discussed separately
+- Note: For discussion of low resolution scheme, eType-1 Scheme-A and eType-II with L=1 are precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <span class="mono">[126-R20-6GR-Aspects of DL based CSI acquisition]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Aspects of downlink-based CSI acquisition · 키워드 일치 100%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: details on whether/how to accommodate passive array with smaller number of ports</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <span class="mono">[125-R20-6GR-Aspects of DL based CSI acquisition]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For the 6GR codebook design for CSI report, study a W1W2 only structure for the low-resolution scheme with the following considerations at least for RI=1-4:
+- W1-structure
+  - SD basis
+    - NR oversampled 2D-DFT basis is a baseline
+      - FFS on other basis, e.g., basis constructed from combined 2D DFT beams
+      - FFS on alphabet set for combination coefficients for the basis constructed from combined 2D DFT beams
+  - SD basis selection
+    - eType-I Scheme-B like unrestricted orthogonal DFT beam selection in 2D direction is a baseline
+      - FFS on orthogonal basis selection in at least 1D direction, or non-orthogonal basis selection
+    - Layer-specific/layer-group-specific SD basis selection
+      - FFS on basis-to-layer (layer-group) mapping, e.g., ordering or no ordering
+      - FFS on the maximum number of SD basis vector selection
+- W2-structure
+  - Layer-specific/layer-group-specific inter-polarization co-phase selection
+    - FFS: inter-polarization amplitude
+  - Alphabet set for inter-polarization co-phase: BPSK, QPSK
+    - FFS: details for each rank
+    - FFS: for WB, whether to consider or not 8-PSK in addition to BPSK and QPSK
+- FFS on RI&gt;4
+- Strive for having a unified codebook scheme for all supported ranks by 6G
+- FFS: details on whether/how to accommodate passive array with smaller number of ports
+- Note: UE implementation complexity is to be considered in the design of SD-basis and co-phasing selection, including the number of candidate combinations and the associated search complexity.
+- Note: CBSR discussion will be discussed separately
+- Note: For discussion of low resolution scheme, eType-1 Scheme-A and eType-II with L=1 are precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <span class="mono">[126-R20-6GR-Aspects of DL based CSI acquisition]</span></span></p>
+  </div>
+</div></div>
+</details><details>
+  <summary><h3>ISAC</h3><span class="small muted">WA 확정 0 ·
+    FFS 후속 후보 7 · Agenda +0/−0</span></summary>
+  <div class="detail-body"><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Evaluations · 키워드 일치 100%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: UAV-UE as sensing capable UE</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603928.zip" target="_blank" rel="noopener">R1-2603928</a> · <span class="mono">[125-R20-6GR-ISAC-Evaluations]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">No consensus to introduce UAV-UE as sensing capable UE in the baseline case/combination of sensing UAV in Rel-20.</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2605742.zip" target="_blank" rel="noopener">R1-2605742</a> · <span class="mono">[126-R20-6GR-ISAC-Evaluations]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Evaluations · 키워드 일치 100%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: AGV UE as sensing capable UE</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603928.zip" target="_blank" rel="noopener">R1-2603928</a> · <span class="mono">[125-R20-6GR-ISAC-Evaluations]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">No consensus to introduce AGV-UE as sensing capable UE in the baseline case/combination of sensing AGV in Rel-20.</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2605742.zip" target="_blank" rel="noopener">R1-2605742</a> · <span class="mono">[126-R20-6GR-ISAC-Evaluations]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Aspects of integration with communication · 키워드 일치 86%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: physical layer design aspects are limited to the scope of AI10.8</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603995.zip" target="_blank" rel="noopener">R1-2603995</a> · <span class="mono">[125-R20-6GR-ISAC-Integration]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">- The following representative use cases for sensing assisted communication is/are selected for study in Rel-20 ISAC
+  - Sensing assisted beam management
+  - [Sensing assisted CSI acquisition and reporting]
+  - Note: companies can also study other use cases for sensing assisted communication
+- Note: In AI10.8, physical layer design discussions are limited to sensing related aspects</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2605585.zip" target="_blank" rel="noopener">R1-2605585</a> · <span class="mono">[126-R20-6GR-ISAC-Integration]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Waveform and frame structure · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: The applicable sensing modes.</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip" target="_blank" rel="noopener">R1-2604764</a> · <span class="mono">[125-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For effective CP length extension for sensing, further study the necessity (including whether implementation based solution can solve the issue or not) and the following candidate solutions.
+- Transmission of successive N OFDM symbols that carries sensing RS
+  - FFS: details of generation method
+  - FFS: value N
+- Freq. domain comb pattern for sensing RS
+  - FFS: details of generation method including comb size
+  - FFS: combination of successive N OFDM symbols and freq. comb pattern
+- Time gap after/before/within OFDM symbol carrying sensing RS, without changing OFDM symbol duration/structure of 6GR communication design
+  - FFS: location of the time gap
+  - FFS: duration of the time gap
+FFS: benefits/drawbacks/spec impact
+FFS: applicable sensing mode and scenario
+FFS: supported excess delay
+FFS: other solutions are not precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606564.zip" target="_blank" rel="noopener">R1-2606564</a> · <span class="mono">[126-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Waveform and frame structure · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: applicable sensing modes</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip" target="_blank" rel="noopener">R1-2604764</a> · <span class="mono">[125-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For effective CP length extension for sensing, further study the necessity (including whether implementation based solution can solve the issue or not) and the following candidate solutions.
+- Transmission of successive N OFDM symbols that carries sensing RS
+  - FFS: details of generation method
+  - FFS: value N
+- Freq. domain comb pattern for sensing RS
+  - FFS: details of generation method including comb size
+  - FFS: combination of successive N OFDM symbols and freq. comb pattern
+- Time gap after/before/within OFDM symbol carrying sensing RS, without changing OFDM symbol duration/structure of 6GR communication design
+  - FFS: location of the time gap
+  - FFS: duration of the time gap
+FFS: benefits/drawbacks/spec impact
+FFS: applicable sensing mode and scenario
+FFS: supported excess delay
+FFS: other solutions are not precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606564.zip" target="_blank" rel="noopener">R1-2606564</a> · <span class="mono">[126-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Waveform and frame structure · 키워드 일치 60%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: whether applicable to dedicated sensing RS or RS shared with communication</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip" target="_blank" rel="noopener">R1-2604764</a> · <span class="mono">[125-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For effective CP length extension for sensing, further study the necessity (including whether implementation based solution can solve the issue or not) and the following candidate solutions.
+- Transmission of successive N OFDM symbols that carries sensing RS
+  - FFS: details of generation method
+  - FFS: value N
+- Freq. domain comb pattern for sensing RS
+  - FFS: details of generation method including comb size
+  - FFS: combination of successive N OFDM symbols and freq. comb pattern
+- Time gap after/before/within OFDM symbol carrying sensing RS, without changing OFDM symbol duration/structure of 6GR communication design
+  - FFS: location of the time gap
+  - FFS: duration of the time gap
+FFS: benefits/drawbacks/spec impact
+FFS: applicable sensing mode and scenario
+FFS: supported excess delay
+FFS: other solutions are not precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606564.zip" target="_blank" rel="noopener">R1-2606564</a> · <span class="mono">[126-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Waveform and frame structure · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: impact on integration with communication</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip" target="_blank" rel="noopener">R1-2604764</a> · <span class="mono">[125-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For effective CP length extension for sensing, further study the necessity (including whether implementation based solution can solve the issue or not) and the following candidate solutions.
+- Transmission of successive N OFDM symbols that carries sensing RS
+  - FFS: details of generation method
+  - FFS: value N
+- Freq. domain comb pattern for sensing RS
+  - FFS: details of generation method including comb size
+  - FFS: combination of successive N OFDM symbols and freq. comb pattern
+- Time gap after/before/within OFDM symbol carrying sensing RS, without changing OFDM symbol duration/structure of 6GR communication design
+  - FFS: location of the time gap
+  - FFS: duration of the time gap
+FFS: benefits/drawbacks/spec impact
+FFS: applicable sensing mode and scenario
+FFS: supported excess delay
+FFS: other solutions are not precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606564.zip" target="_blank" rel="noopener">R1-2606564</a> · <span class="mono">[126-R20-6GR-ISAC-Waveform and FS]</span></span></p>
+  </div>
+</div></div>
+</details><details>
+  <summary><h3>6G Study Item (6GR, 기타)</h3><span class="small muted">WA 확정 1 ·
+    FFS 후속 후보 7 · Agenda +6/−2</span></summary>
+  <div class="detail-body"><p class="agenda-change"><strong>Agenda 신설</strong> Downlink and uplink transmission without dynamic scheduling, Handling of potential multiple uplink transmissions, NTN specific requirements and design, Operation in connected mode, Operation in idle mode, WUS operation with other functionalities<br><strong>Agenda 제외</strong> General aspects and frameworks, NTN specific requirements and design for GNSS based operation</p><div class="items-list"><div><span class="chip confirmed">WA 확정</span> <span class="mono small">10.5.1.3</span> <span class="small muted">Bandwidth operation</span></div><p class="quote"><span class="text">For initial access, confirm the RAN1#125 Working Assumption that the frequency location and bandwidth of the SIB1-PDSCH are determined independently of the UE&#x27;s bandwidth capability</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <span class="mono">[126-R20-6GR-Bandwidth operation]</span></span></p></div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Waveform · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: transparent/non-transparent filtering</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2605068.zip" target="_blank" rel="noopener">R1-2605068</a></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">Complete the following list of UL PAPR reduction techniques for further down-selection
+- Option 1: FDSS with no spectrum extension or truncation
+  - Transparent / non-transparent
+  - Modulation: Pi/2 BPSK / QPSK
+  - Applicable SE range: FFS
+- Option 2: FDSS with spectrum extension
+  - Transparent / non-transparent
+  - Modulation: Pi/2 BPSK / QPSK / 16QAM
+  - Applicable SE range: FFS
+- Option 3: FDSS with spectrum truncation
+  - Transparent / non-transparent
+  - Modulation: Pi/2 BPSK
+  - Applicable SE range: FFS
+- FFS: condition on when to apply finally selected option/scheme
+- Note: target to down select transparent / non-transparent and modulation (at least on 16QAM) for above options at RAN1#126bis</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606804.zip" target="_blank" rel="noopener">R1-2606804</a></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Channel coding · 키워드 일치 80%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: UE capability for BG3 (optional, mandatory, other details, etc.)</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2605018.zip" target="_blank" rel="noopener">R1-2605018</a> · <span class="mono">[125-R20-6GR-Channel coding]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">With respect to the decision for capability of BG3 in UL tasked by RANP, the following is supported:
+supporting BG3 in UL is mandatory with capability signaling for UEs except for UEs with up to 20MHz maximum UL channel bandwidth in any band supported by UE, i.e., BG3 in UL is optional for UEs with up to 20MHz maximum UL channel bandwidth in any band supported by UE.
+Note: Whether any additional exception to the above is needed is up to RAN plenary decision.</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606774.zip" target="_blank" rel="noopener">R1-2606774</a> · <span class="mono">[126-R20-6GR-Channel coding]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Downlink transmission scheme(s) for downlink control channels · 키워드 일치 75%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS the number of REGs per REG bundle</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <span class="mono">[125-R20-6GR-Transmission scheme for DL control channel]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">- A CCE consists of 6 REGs for 6GR PDCCH
+- REGs in a REG bundle are contiguous in frequency and time.
+- At least REG-bundle size of 6 REGs is supported
+  - FFS a need for other sizes.</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606612.zip" target="_blank" rel="noopener">R1-2606612</a> · <span class="mono">[126-R20-6GR-Transmission scheme for DL control channel]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Uplink transmission scheme(s) for uplink channels · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: What channel information UE reports</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <span class="mono">[125-R20-6GR-Transmission scheme for UL channels]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For codebook based PUSCH transmission for 6GR, study configurable codebook considering the following options and aspects:
+- Option 1. Downloadable codebook
+  - NW determines a set of precoder(s)/matrices.
+  - From NW, UE is configured with a set of precoder(s)/matrices.
+  - After NW acquires UL CSI, an UL precoder within the set of precoder(s) is indicated by NW to UE.
+- Option 2. Uploadable codebook
+  - UE determines a set of precoder(s) and reports to NW.
+  - From NW, UE is configured with a set of precoder(s).
+  - After NW acquires UL CSI, an UL precoder within the set of precoder(s) is indicated by NW to UE.
+- Whether to consider constant modulus property
+- Whether/how to indicate/obtain UE’s relevant information
+- How to construct hybrid approach between fixed codebook and configurable codebook
+- Memory burden / implementation complexity for UE/NW side
+- Applicable scenario/use case (e.g., applicable number of antenna ports)
+- How to consider PAPR increase and UE power constraint</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2605832.zip" target="_blank" rel="noopener">R1-2605832</a> · <span class="mono">[126-R20-6GR-Transmission scheme for UL channels]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Uplink transmission scheme(s) for uplink channels · 키워드 일치 67%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: What channel information UE reports</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <span class="mono">[125-R20-6GR-Transmission scheme for UL channels]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">For codebook based PUSCH transmission for 6GR, study configurable codebook considering the following options and aspects:
+- Option 1. Downloadable codebook
+  - NW determines a set of precoder(s)/matrices.
+  - From NW, UE is configured with a set of precoder(s)/matrices.
+  - After NW acquires UL CSI, an UL precoder within the set of precoder(s) is indicated by NW to UE.
+- Option 2. Uploadable codebook
+  - UE determines a set of precoder(s) and reports to NW.
+  - From NW, UE is configured with a set of precoder(s).
+  - After NW acquires UL CSI, an UL precoder within the set of precoder(s) is indicated by NW to UE.
+- Whether to consider constant modulus property
+- Whether/how to indicate/obtain UE’s relevant information
+- How to construct hybrid approach between fixed codebook and configurable codebook
+- Memory burden / implementation complexity for UE/NW side
+- Applicable scenario/use case (e.g., applicable number of antenna ports)
+- How to consider PAPR increase and UE power constraint</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2605832.zip" target="_blank" rel="noopener">R1-2605832</a> · <span class="mono">[126-R20-6GR-Transmission scheme for UL channels]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Downlink control channel, scheduling for downlink and uplink transmission · 키워드 일치 100%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: maximum number of DCI container sizes for a UE</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603880.zip" target="_blank" rel="noopener">R1-2603880</a> · <span class="mono">[125-R20-6GR-DL control channel and scheduling]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">Study at least the following mechanisms for DCI Container size determination (at least for RRC connected state), with the details as below:
+- For Alt 1:
+  - the container size(s) is implicitly derived from the RRC configuration,
+    - E.g., the size for a given DCI container is the maximum possible size based on RRC configurations for the applicable functionalities.
+- For Alt 2:
+  - the container size(s) are explicitly signalled by the network via RRC
+- For Alt 3’:
+  - DCI container size(s) is not dependent on UE-specific RRC configuration
+    - This is e.g., cell-specific DCI and random access procedure DCI in common search space. Details FFS.
+- FFS: Padding/reservation
+- FFS: need for truncation
+- FFS: need for size determination during bandwidth adaptation.
+- Regarding UE’s DCI monitoring size budget, for a single carrier operation,
+  - FFS: the maximum number of container sizes for a UE to monitor (e.g., for BD purpose) is Xmax.
+  - FFS: Whether the maximum number of container sizes for a UE to monitor (e.g., for BD purpose) for UE’s RNTI (e.g., C-RNTI) is Ymax.
+  - FFS: whether the limitation is per slot or across slots
+  - FFS: for multi-carrier cases
+- FFS minimum container size.
+- FFS maximum container size.
+- FFS maximum number of container sizes for two stage DCI
+- Note: Using a combination of the above alternatives for different use cases is not precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606048.zip" target="_blank" rel="noopener">R1-2606048</a> · <span class="mono">[126-R20-6GR-DL control channel and scheduling]</span></span></p>
+  </div>
+</div><div class="items-list">
+  <div><span class="chip candidate">후속 결정 후보 · 확인 필요</span>
+    <span class="small muted">Downlink control channel, scheduling for downlink and uplink transmission · 키워드 일치 80%</span></div>
+  <div class="pair">
+    <p class="quote"><span class="eyebrow">RAN1#125 FFS</span>
+<span class="text">FFS: whether/how to do padding/truncation within a DCI container</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes RAN1#125_eom</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603880.zip" target="_blank" rel="noopener">R1-2603880</a> · <span class="mono">[125-R20-6GR-DL control channel and scheduling]</span></span></p>
+    <p class="quote"><span class="eyebrow">RAN1#126 결정</span>
+<span class="text">Study at least the following mechanisms for DCI Container size determination (at least for RRC connected state), with the details as below:
+- For Alt 1:
+  - the container size(s) is implicitly derived from the RRC configuration,
+    - E.g., the size for a given DCI container is the maximum possible size based on RRC configurations for the applicable functionalities.
+- For Alt 2:
+  - the container size(s) are explicitly signalled by the network via RRC
+- For Alt 3’:
+  - DCI container size(s) is not dependent on UE-specific RRC configuration
+    - This is e.g., cell-specific DCI and random access procedure DCI in common search space. Details FFS.
+- FFS: Padding/reservation
+- FFS: need for truncation
+- FFS: need for size determination during bandwidth adaptation.
+- Regarding UE’s DCI monitoring size budget, for a single carrier operation,
+  - FFS: the maximum number of container sizes for a UE to monitor (e.g., for BD purpose) is Xmax.
+  - FFS: Whether the maximum number of container sizes for a UE to monitor (e.g., for BD purpose) for UE’s RNTI (e.g., C-RNTI) is Ymax.
+  - FFS: whether the limitation is per slot or across slots
+  - FFS: for multi-carrier cases
+- FFS minimum container size.
+- FFS maximum container size.
+- FFS maximum number of container sizes for two stage DCI
+- Note: Using a combination of the above alternatives for different use cases is not precluded</span><span class="src"><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes RAN1#126_eom1</a> · <a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Docs/R1-2606048.zip" target="_blank" rel="noopener">R1-2606048</a> · <span class="mono">[126-R20-6GR-DL control channel and scheduling]</span></span></p>
+  </div>
+</div></div>
+</details></section>
+<section>
+  <h2>회의별 결정 수</h2>
+  <div class="table-scroll"><table class="matrix">
+    <thead><tr><th>회의</th><th class="num">AI/ML for NR Air Interface</th><th class="num">Rel-19 Maintenance (AI/ML, MIMO Ph5, NES, NTN 등)</th><th class="num">CSI Acquisition / Prediction</th><th class="num">Beam Management</th><th class="num">Positioning</th><th class="num">ISAC</th><th class="num">6G Study Item (6GR, 기타)</th><th class="num">합계</th><th>원문</th></tr></thead>
+    <tbody><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_126.md" target="_blank" rel="noopener">RAN1#126</a></td><td class="num">4</td><td class="num">33</td><td class="num">40</td><td class="num">12</td><td class="num zero">0</td><td class="num">28</td><td class="num">138</td><td class="num">255</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx" target="_blank" rel="noopener">Chair notes</a></td></tr><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_125.md" target="_blank" rel="noopener">RAN1#125</a></td><td class="num">5</td><td class="num">21</td><td class="num">36</td><td class="num">13</td><td class="num zero">0</td><td class="num">29</td><td class="num">136</td><td class="num">240</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx" target="_blank" rel="noopener">Chair notes</a></td></tr><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_124bis.md" target="_blank" rel="noopener">RAN1#124bis</a></td><td class="num">3</td><td class="num">54</td><td class="num">45</td><td class="num">9</td><td class="num zero">0</td><td class="num">14</td><td class="num">121</td><td class="num">246</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx" target="_blank" rel="noopener">Chair notes</a></td></tr><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_124.md" target="_blank" rel="noopener">RAN1#124</a></td><td class="num">6</td><td class="num">62</td><td class="num">33</td><td class="num">4</td><td class="num zero">0</td><td class="num">23</td><td class="num">107</td><td class="num">235</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124/Inbox/Chair_notes/Chair%20notes%20RAN1%23124%20-%20eom_03.docx" target="_blank" rel="noopener">Chair notes</a></td></tr><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_123.md" target="_blank" rel="noopener">RAN1#123</a></td><td class="num">5</td><td class="num">100</td><td class="num">20</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">10</td><td class="num">49</td><td class="num">184</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_123/Inbox/Chair_notes/Chair%20notes%20RAN1%23123%20-%20eom3.docx" target="_blank" rel="noopener">Chair notes</a></td></tr><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_122bis.md" target="_blank" rel="noopener">RAN1#122bis</a></td><td class="num">3</td><td class="num">142</td><td class="num">22</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">15</td><td class="num">43</td><td class="num">225</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_122b/Inbox/Chair_Notes/Chair%20notes%20RAN1%23122b%20eom4.docx" target="_blank" rel="noopener">Chair notes</a></td></tr><tr><td class="mono"><a href="https://github.com/jgunmoon/JG_Test_Project/blob/ccr-0c6b397f-j6xur9/reports/by_meeting/ran1_122.md" target="_blank" rel="noopener">RAN1#122</a></td><td class="num">6</td><td class="num">218</td><td class="num">18</td><td class="num zero">0</td><td class="num zero">0</td><td class="num">8</td><td class="num">25</td><td class="num">275</td><td><a href="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_122/Inbox/Chair_notes/Chair%20notes%20RAN1%23122%20eom.zip" target="_blank" rel="noopener">Chair notes</a></td></tr></tbody>
+  </table></div>
+</section>
+<footer>모든 수치는 3GPP FTP의 회의 종료본 Chair notes에서 추출한 Agreement · Working Assumption · Conclusion입니다.
+  이 페이지는 scripts/render_html.py가 자동으로 생성합니다.</footer>
+</main>
+<div id="tip" hidden></div>
+<script>
+(() => {
+  const tip = document.getElementById('tip');
+  const show = (el, x, y) => { tip.textContent = el.dataset.tip; tip.hidden = false;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(8, Math.min(x + 12, innerWidth - w - 8)) + 'px';
+    tip.style.top = Math.max(8, y - h - 12) + 'px'; };
+  document.querySelectorAll('[data-tip]').forEach(el => {
+    el.addEventListener('pointermove', ev => show(el, ev.clientX, ev.clientY));
+    el.addEventListener('pointerleave', () => { tip.hidden = true; });
+    el.addEventListener('focus', () => { const r = el.getBoundingClientRect(); show(el, r.left, r.top); });
+    el.addEventListener('blur', () => { tip.hidden = true; });
+  });
+})();
+</script>
+</body>
+</html>

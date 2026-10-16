@@ -183,7 +183,8 @@ def render_dashboard(config, db):
             d = delta.compute(db, item["id"], prev, latest)
             lines.append(f"| {item['name']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} | {d['prev_ffs']} "
                          f"| {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
-    lines += ["", "## 회의별 리포트", ""]
+    lines += ["", "보기 좋은 화면은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
+              "", "## 회의별 리포트", ""]
     lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]
     return "\n".join(lines + [""])
 
@@ -199,6 +200,8 @@ def write_reports(config, db, out_dir):
     for meeting in _meetings(db):
         (out_dir / "by_meeting" / f"{meeting_slug(meeting)}.md").write_text(
             render_meeting_report(meeting, config, db), encoding="utf-8")
+    from scripts.render_html import render_html  # render_html이 이 모듈을 import하므로 함수 안에서 불러옵니다
+    (out_dir / "index.html").write_text(render_html(config, db), encoding="utf-8")
 
 
 def main():

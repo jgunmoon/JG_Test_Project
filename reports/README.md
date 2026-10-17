@@ -2,7 +2,7 @@
 
 > 이 파일은 `scripts/generate_report.py`가 자동으로 생성합니다. 직접 수정하지 마세요.
 
-**최신 회의: RAN1#126** ([전체 결과](by_meeting/ran1_126.md)) · 추적 RAN1#122–#126 · 누적 결정 2,481건
+**최신 회의: RAN1#126** ([전체 결과](by_meeting/ran1_126.md)) · 추적 RAN1#122–#126 · 누적 결정 2,677건
 
 공식 Agenda의 최상위 항목(섹션)별 현황입니다. 미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.
 
@@ -10,11 +10,11 @@
 |---|---|---|---|---|---|---|
 | 6 Pre-Rel-19 E-UTRA Maintenance | 1 | 0 | 0 | 0 | 4 | [보기](by_agenda/pre-rel-19-e-utra-maintenance.md) |
 | 7 Pre-Rel-19 NR Maintenance | 4 | 0 | 2 | 0 | 48 | [보기](by_agenda/pre-rel-19-nr-maintenance.md) |
-| 8 Maintenance on Rel-19 NR and E-UTRA | 27 | 0 | 6 | 0 | 630 | [보기](by_agenda/maintenance-on-rel-19-nr-and-e-utra.md) |
-| 9 Release 20 NR | 82 | 2 | 3 | 35 | 823 | [보기](by_agenda/release-20-nr.md) |
-| 10 Rel-20 Study of 6GR | 191 | 9 | 14 | 156 | 856 | [보기](by_agenda/rel-20-study-of-6gr.md) |
+| 8 Maintenance on Rel-19 NR and E-UTRA | 27 | 0 | 6 | 0 | 638 | [보기](by_agenda/maintenance-on-rel-19-nr-and-e-utra.md) |
+| 9 Release 20 NR | 82 | 2 | 3 | 35 | 824 | [보기](by_agenda/release-20-nr.md) |
+| 10 Rel-20 Study of 6GR | 191 | 9 | 14 | 156 | 857 | [보기](by_agenda/rel-20-study-of-6gr.md) |
 | 11 TEI | 1 | 0 | 0 | 0 | 3 | [보기](by_agenda/tei.md) |
-| 9 Rel-19 UE Features (~RAN1#123) | 0 | 0 | 0 | 0 | 106 | [보기](by_agenda/rel-19-ue-features.md) |
+| 9 Rel-19 UE Features (~RAN1#123) | 0 | 0 | 0 | 0 | 292 | [보기](by_agenda/rel-19-ue-features.md) |
 | 5 Incoming Liaison Statements (~RAN1#122bis) | 0 | 0 | 0 | 0 | 11 | [보기](by_agenda/incoming-liaison-statements.md) |
 
 ## 직전 회의 대비 (RAN1#125 → RAN1#126)
@@ -27,7 +27,7 @@ FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 섹션 리�
 | 7 Pre-Rel-19 NR Maintenance | 6 | 0 | 0 | 0 | +0 / -0 |
 | 8 Maintenance on Rel-19 NR and E-UTRA | 33 | 0 | 0 | 0 | +0 / -0 |
 | 9 Release 20 NR | 87 | 2 | 39 | 14 | +0 / -3 |
-| 10 Rel-20 Study of 6GR | 214 | 1 | 74 | 16 | +6 / -2 |
+| 10 Rel-20 Study of 6GR | 214 | 1 | 76 | 16 | +6 / -2 |
 | 11 TEI | 1 | 0 | 0 | 0 | +0 / -0 |
 
 ## 추출 점검
@@ -37,12 +37,12 @@ FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 섹션 리�
 | 회의 | 결과 | 주요 내용 |
 |---|---|---|
 | RAN1#126 | 참고 1건 | 파서 경고 2개 |
-| RAN1#125 | 확인 필요 1건 | 결정 표시처럼 보이지만 읽지 못한 줄 2개 (예: 'Agreement: 본문'처럼 같은 줄에 쓴 형식). 이 결정들은 DB에 없을 수 있습니다. |
-| RAN1#124bis | 확인 필요 1건 | 결정 표시는 있는데 본문을 읽지 못한 경우 1개 |
-| RAN1#124 | 확인 필요 1건 · 참고 1건 | 결정 표시처럼 보이지만 읽지 못한 줄 1개 (예: 'Agreement: 본문'처럼 같은 줄에 쓴 형식). 이 결정들은 DB에 없을 수 있습니다. |
-| RAN1#123 | 확인 필요 2건 | 결정 표시처럼 보이지만 읽지 못한 줄 15개 (예: 'Agreement: 본문'처럼 같은 줄에 쓴 형식). 이 결정들은 DB에 없을 수 있습니다. |
-| RAN1#122bis | 확인 필요 1건 | 결정 표시처럼 보이지만 읽지 못한 줄 74개 (예: 'Agreement: 본문'처럼 같은 줄에 쓴 형식). 이 결정들은 DB에 없을 수 있습니다. |
-| RAN1#122 | 확인 필요 1건 | 결정 표시처럼 보이지만 읽지 못한 줄 100개 (예: 'Agreement: 본문'처럼 같은 줄에 쓴 형식). 이 결정들은 DB에 없을 수 있습니다. |
+| RAN1#125 | 이상 없음 |  |
+| RAN1#124bis | 이상 없음 |  |
+| RAN1#124 | 참고 1건 | 'Rel-19 UE Features' 섹션이 공식 Agenda에서 빠졌습니다 (RAN1#123에는 결정 42건). |
+| RAN1#123 | 이상 없음 |  |
+| RAN1#122bis | 이상 없음 |  |
+| RAN1#122 | 이상 없음 |  |
 
 보기 좋은 화면, Agenda 목차, 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.
 

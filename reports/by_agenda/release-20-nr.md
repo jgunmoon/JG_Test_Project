@@ -14,7 +14,7 @@ timeline
     RAN1#35;123 : 결정 129
     RAN1#35;124 : 결정 205
     RAN1#35;124bis : 결정 85
-    RAN1#35;125 : 결정 123
+    RAN1#35;125 : 결정 124
     RAN1#35;126 : 결정 87
 ```
 
@@ -699,7 +699,7 @@ timeline
 
 ### 9.6.1 Semi-persistent scheduling for DL/UL data transmission for voice packets (마지막: RAN1#125)
 
-회의별 결정 수: #122 0 · #122bis 0 · #123 0 · #124 7 · #124bis 4 · #125 14 · #126 0
+회의별 결정 수: #122 0 · #122bis 0 · #123 0 · #124 7 · #124bis 4 · #125 15 · #126 0
 
 | 회의 | 번호 | 구분 | 내용 | 출처 |
 |---|---|---|---|---|
@@ -727,7 +727,8 @@ timeline
 | RAN1#125 | 9.6.1 | Agreement | The following RRC parameters are agreed.<br>\| RAN2 Parent IE \| Parameter name in the spec \| New or existing? \| Description \| Value range \| UE-specific or Cell-specific \|<br>\| SPS-ConfigDL-NB \| timeDomainOffsetDL \| new \| Time offset for determining the nominal resource for DL SPS for NB IoT. Value in number of sub-frames. \| INTEGER(0, 1,...159) \| UE-specific \|<br>\| SPS-ConfigUL-NB \| timeDomainOffsetUL \| new \| Time offset for determining the nominal resource for UL SPS for NB IoT. Value in number of sub-frames. \| INTEGER(0, 1,...159) \| UE-specific \| | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2603637](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603637.zip) |
 | RAN1#125 | 9.6.1 | Conclusion | The following collision cases for Rel-20 NB-IoT NTN UE if they occur, are handled by implementation:<br>- a postponed SPS NPUSCH transmission is overlapped with another SPS NPDSCH reception/resource<br>- a postponed SPS NPDSCH reception is overlapped with another SPS NPUSCH transmission/resource | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2603637](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603637.zip) |
 | RAN1#125 | 9.6.1 | Conclusion | The following collision cases for Rel-20 NB-IoT NTN UE if they occur, are handled by implementation:<br>- a postponed SPS NPUSCH transmission is overlapped with another SPS NPUSCH transmission/resource<br>- a postponed SPS NPDSCH reception is overlapped with another SPS NPDSCH reception/resource | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2603637](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603637.zip) |
-| RAN1#125 | 9.6.1 | Agreement | With respect to RAN2 LS (R1-2603484), the following is endorsed for response.<br>Conclusion for UL SPS with multi-TBS (after offline):<br>Introducing a multiple-TB-size mechanism in a similar way as defined for Rel-15 EDT (e.g., edt-SmallTBS-Enabled) for UL SPS for NB-IoT NTN could be beneficial for UE power saving and reducing the impact of power backoff due to SAR requirements, if the transmission repetition number for a UE-selected smaller TBS is smaller than that of the configured TBS. However, it requires blind decoding at the network side, and it is challenging to reuse the unused resources after UE selecting a smaller TBS for another UE.<br>While it may be technically feasible to support this mechanism for UL SPS for NB-IoT NTN, it may be challenging to implement this mechanism at network side. There is also no RAN1 consensus on the potential RAN1 specification impacts at this stage, and RAN1 considers this mechanism as not feasible given that the limited TUs allocated.<br>The draft LS in R1-2605096 is endorsed. The final LS in R1-2605105. | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2603637](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603637.zip) |
+| RAN1#125 | 9.6.1 | Agreement | With respect to RAN2 LS (R1-2603484), the following is endorsed for response. | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2603637](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603637.zip) |
+| RAN1#125 | 9.6.1 | Conclusion | Introducing a multiple-TB-size mechanism in a similar way as defined for Rel-15 EDT (e.g., edt-SmallTBS-Enabled) for UL SPS for NB-IoT NTN could be beneficial for UE power saving and reducing the impact of power backoff due to SAR requirements, if the transmission repetition number for a UE-selected smaller TBS is smaller than that of the configured TBS. However, it requires blind decoding at the network side, and it is challenging to reuse the unused resources after UE selecting a smaller TBS for another UE.<br>While it may be technically feasible to support this mechanism for UL SPS for NB-IoT NTN, it may be challenging to implement this mechanism at network side. There is also no RAN1 consensus on the potential RAN1 specification impacts at this stage, and RAN1 considers this mechanism as not feasible given that the limited TUs allocated.<br>The draft LS in R1-2605096 is endorsed. The final LS in R1-2605105. | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2603637](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2603637.zip) |
 
 ### 9.2.1 Improvement of SRS capacity and coverage (마지막: RAN1#124)
 

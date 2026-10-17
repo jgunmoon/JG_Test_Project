@@ -14,7 +14,7 @@ timeline
     RAN1#35;123 : 결정 52
     RAN1#35;124 : 결정 127
     RAN1#35;124bis : 결정 184
-    RAN1#35;125 : 결정 210
+    RAN1#35;125 : 결정 211
     RAN1#35;126 : 결정 214
 ```
 
@@ -53,7 +53,7 @@ timeline
 
 ## 10 Rel-20 Study of 6GR
 
-회의별 결정 수 (하위 Agenda 포함): #122 3 · #122bis 11 · #123 18 · #124 83 · #124bis 153 · #125 181 · #126 214
+회의별 결정 수 (하위 Agenda 포함): #122 3 · #122bis 11 · #123 18 · #124 83 · #124bis 153 · #125 182 · #126 214
 
 ### 10.2 Waveform for 6GR air interface
 
@@ -876,7 +876,7 @@ timeline
 
 ### 10.8 ISAC
 
-회의별 결정 수 (하위 Agenda 포함): #122 0 · #122bis 0 · #123 0 · #124 0 · #124bis 14 · #125 29 · #126 28
+회의별 결정 수 (하위 Agenda 포함): #122 0 · #122bis 0 · #123 0 · #124 0 · #124bis 14 · #125 30 · #126 28
 
 #### 10.8.1 Evaluations
 
@@ -951,7 +951,7 @@ timeline
 
 #### 10.8.3 Waveform and frame structure
 
-회의별 결정 수 (하위 Agenda 포함): #122 0 · #122bis 0 · #123 0 · #124 0 · #124bis 4 · #125 4 · #126 6
+회의별 결정 수 (하위 Agenda 포함): #122 0 · #122bis 0 · #123 0 · #124 0 · #124bis 4 · #125 5 · #126 6
 
 | 회의 | 번호 | 구분 | 내용 | 출처 |
 |---|---|---|---|---|
@@ -959,6 +959,7 @@ timeline
 | RAN1#124bis | 10.8.3 | Agreement | 6GR communication frame structure is the starting point for 6G ISAC frame structure study, in at least the following aspects.<br>- Frame/sub-frame/slot/symbol structure<br>- CP length<br>- SCS<br>Enhancements on frame structure/above aspects are not precluded. | [Chair notes RAN1#124bis_eom5](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx)<br>[R1-2602983](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Docs/R1-2602983.zip)<br>`[124b-R20-6GR-ISAC-Waveform and FS]` |
 | RAN1#124bis | 10.8.3 | Agreement | Companies are encouraged to provide views on necessity/pros/cons/metrics of LLS and/or SLS and pros/cons/metrics of theoretical waveform characteristics analysis, for evaluation of ISAC waveform and/or integration with communication, to RAN1#125 meeting. | [Chair notes RAN1#124bis_eom5](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx)<br>[R1-2602983](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Docs/R1-2602983.zip)<br>`[124b-R20-6GR-ISAC-Waveform and FS]` |
 | RAN1#124bis | 10.8.3 | Agreement | CP-OFDM is used as the benchmark for evaluating the benefits of sensing waveforms. | [Chair notes RAN1#124bis_eom5](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx)<br>[R1-2602983](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Docs/R1-2602983.zip)<br>`[124b-R20-6GR-ISAC-Waveform and FS]` |
+| RAN1#125 | 10.8.3 | Agreement | At least the following potential enhancement directions for CP-OFDM are studied for 6G ISAC.<br>- Improve PAPR<br>- Obtain Tx power gain from other<br>- Improve Ambiguity Function (AF)/Auto-correlation properties (PSLR/ISLR, main lobe width)<br>  - FFS: details of the definitions, time/frequency/doppler domain, linear correlation vs circular correlation, etc.<br>- Improve resilience to interference<br>- Improve sensing resource utilization efficiency<br>- Improve cross-correlation property<br>  - FFS: details of the definition<br>Note: Other enhancements and any combination of multiple enhancements are not precluded.<br>At least the following aspects are considered for above potential enhancement directions for CP-OFDM for 6G ISAC.<br>- Impact to ACLR(Adjacent Channel Leakage Ratio)/OOBE(Out-Of-Band Emission)<br>- Impact to ISI/ICI/self-interference/inter-cell interference<br>- Impact to Tx/Rx complexity<br>- Impact to communication (e.g., resource, interference)<br>- Impact from one enhancement to other enhancements | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2604763](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604763.zip)<br>`[125-R20-6GR-ISAC-Waveform and FS]` |
 | RAN1#125 | 10.8.3 | Agreement | - Companies are encouraged to provide theoretical waveform/RS sequence characteristics analysis for waveform/RS sequence evaluation for 6G ISAC.<br>- Companies are encouraged to provide either LLS or a simplified SLS in addition to the theoretical waveform/RS sequence characteristics analysis. It’s up to company to select and how to model LLS or a simplified SLS. | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2604764](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip)<br>`[125-R20-6GR-ISAC-Waveform and FS]` |
 | RAN1#125 | 10.8.3 | Agreement | For the study of enhancement based on CP-OFDM for signal/RS used for sensing, at least the following methods can be considered.<br>- Zadoff-Chu sequence enhancement<br>- Gold sequence enhancement<br>- LFM/Chirp-like sequence (incl. frequency sweeping/Chirp rate/slope)<br>- Quasi-complementary sequence set (QCSS)<br>- Transparent/Non-transparent Tx/Rx time-domain processing and/or frequency-domain processing (e.g., FDSS)<br>- Pi/2 BPSK for RS<br>- Non-Linear FM sequence<br>- Pulse-type waveform/RS generation<br>- Phase continuity in the sensing resource block considering the guard band<br>- RS sequence randomization in time and/or frequency domain<br>- RS sequence spanning across multiple symbols<br>FFS: whether applicable to dedicated resource and/or shared resource with communication<br>FFS: The applicable sensing modes.<br>Note: Not all enhancements directions may be applicable for each of the above methods<br>Note: Other methods are not precluded. | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2604764](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip)<br>`[125-R20-6GR-ISAC-Waveform and FS]` |
 | RAN1#125 | 10.8.3 | Agreement | For waveform/RS sequence evaluation for 6G ISAC, at least the following waveform/RS sequence characteristics are considered as the evaluation metrics.<br>- PAPR<br>- Tx power gain<br>  - PA model used should be reported by company<br>- Ambiguity function/auto-correlation property<br>  - PSLR / ISLR / main lobe width<br>  - FFS: details of the definitions, time/frequency/doppler domain, linear / circular correlation, etc.<br>- Cross-correlation<br>  - FFS: details of the definition<br>- Out-of-band characteristics<br>  - Adjacent Channel Leakage Ratio(ACLR) / Out-Of-Band Emission(OOBE)<br>  - PA model used should be reported by company<br>- Resilience to interference<br>  - Resilience to ISI, ICI, self-interference, inter-cell interference<br>  - FFS: details of metrics<br>FFS: whether applicable to dedicated resource and/or shared resource with communication<br>FFS: applicable metrics per evaluation scenario<br>Other metrics are not precluded. | [Chair notes RAN1#125_eom](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Inbox/Chair_notes/Chair%20notes%20RAN1%23125_eom.docx)<br>[R1-2604764](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_125/Docs/R1-2604764.zip)<br>`[125-R20-6GR-ISAC-Waveform and FS]` |

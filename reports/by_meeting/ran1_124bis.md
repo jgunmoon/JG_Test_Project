@@ -2,8 +2,7 @@
 
 > 이 파일은 `scripts/generate_report.py`가 자동으로 생성합니다. 직접 수정하지 마세요.
 
-> **추출 점검: 확인 필요 1건**
-> - [확인 필요] 결정 표시는 있는데 본문을 읽지 못한 경우 1개
+> **추출 점검: 이상 없음**
 
 ## 6 Pre-Rel-19 E-UTRA Maintenance
 
@@ -134,6 +133,7 @@
 
 | 구분 | 내용 | 출처 |
 |---|---|---|
+| Agreement | R1-2603365	Updated RAN1 UE features list for Rel-19 NR after RAN1#124bis	Moderators(AT&T, NTT DOCOMO, INC.)<br>R1-2603366	Draft LS on updated Rel-19 RAN1 UE features list for NR after RAN1#124bis	Moderators(AT&T, NTT DOCOMO, INC.)<br>R1-2603367	LS on updated Rel-19 RAN1 UE features list for NR after RAN1#124bis	RAN1, AT&T, NTT DOCOMO, INC. | [Chair notes RAN1#124bis_eom5](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx)<br>`[124b-R19-UE features]` |
 | Agreement | •	Adopt the following changes highlighted in chromatic fonts, while keeping the yellow highlighting as shown<br>\| 59. NR_MIMO_Ph5 \| 59-2-3-10 \| Relaxed timeline for joint triggering of CJTC Dd and Rel-18 eType-II CJT \| Support of relaxed timeline for joint triggering of CJTC Dd and Rel-18 eType-II CJT, i.e., Drelax = drelax \| 59-2-3-7 \| yes \| n/a \| Relaxed timeline for joint triggering od CJTC Dd and Rel-18 eType-II CJT is not supported, i.e., Drelax = 0 \| Per band and per BC \| n/a \| n/a \| n/a FR1 only \| Component candidate values: 15kHz SCS: {2, 4, 8} 30kHz SCS: {4, 8, 14, 28} 60kHz SCS: {8,14, 28} 120kHz SCS: {14,28, 56} 480kHz SCS: {56, 112, 224} 960kHz SCS: {112, 224, 448} \| Optional with capability signalling \| | [Chair notes RAN1#124bis_eom5](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx)<br>[R1-2603262](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Docs/R1-2603262.zip)<br>`[124b-R19-UE features]` |
 | Conclusion | RAN1 will not update FG 58-2-9/10/11. RAN1 will provide the feedback in the LS on updated UE features list to confirm following RAN1 understanding.<br>- FG 58-2-9 should not be reported to the gNB<br>- FG 58-2-10 should not be reported to the gNB<br>- FG 58-2-11 should not be reported to the gNB | [Chair notes RAN1#124bis_eom5](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Inbox/Chair_notes/Chair%20notes%20RAN1%23124bis_eom5.docx)<br>[R1-2603328](https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_124b/Docs/R1-2603328.zip)<br>`[124b-R19-UE features]` |
 

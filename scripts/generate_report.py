@@ -183,6 +183,13 @@ def _render_delta(d):
 
 def render_meeting_report(meeting, config, db):
     lines = [f"# {meeting} 결과 요약", "", GENERATED_NOTE, ""]
+    h = db.get("meetings", {}).get(meeting, {}).get("health")
+    if h:
+        lines.append(f"> **추출 점검: {h['summary']}**")
+        for i in h["issues"]:
+            lines.append(f"> - [{'확인 필요' if i['level'] == 'warning' else '참고'}] {i['message']}")
+            lines += [f">   - {x}" for x in i["samples"]]
+        lines.append("")
     groups = defaultdict(list)
     for e in db["entries"]:
         if e["meeting"] == meeting:
@@ -233,6 +240,16 @@ def render_dashboard(config, db):
             d = delta.compute(db, sec["key"], prev, latest)
             lines.append(f"| {sec['number']} {sec['title']} | {sum(d['new'].values())} | {len(d['wa_confirmed'])} "
                          f"| {d['prev_ffs']} | {len(d['ffs_followups'])} | +{len(d['agenda_new'])} / -{len(d['agenda_dropped'])} |")
+    lines += ["", "## 추출 점검", "",
+              "회의마다 결정이 조용히 누락됐을 가능성을 점검한 결과입니다. '확인 필요'는 원문과 대조가 필요합니다.", "",
+              "| 회의 | 결과 | 주요 내용 |", "|---|---|---|"]
+    for m in reversed(meetings):
+        h = db.get("meetings", {}).get(m, {}).get("health")
+        if not h:
+            lines.append(f"| {m} | 점검 기록 없음 | |")
+            continue
+        top = next((i for i in h["issues"] if i["level"] == "warning"), h["issues"][0] if h["issues"] else None)
+        lines.append(f"| {m} | {h['summary']} | {_cell(top['message']) if top else ''} |")
     lines += ["", "보기 좋은 화면, Agenda 목차, 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
               "", "## 회의별 리포트", ""]
     lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]

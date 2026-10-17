@@ -84,3 +84,14 @@ def test_meeting_counts_in_agenda_tree_are_buttons_for_that_meeting():
     assert '<button type="button" class="cell" data-meet="RAN1#126" aria-pressed="false">2</button>' in page
     assert 'data-keys="[&quot;rel-20 study of 6gr || beam management&quot;]"' in page   # JSON 배열 (키에 '||' 포함)
     assert page.count('class="agenda-detail"') >= 4          # 모든 행 아래에 펼침 영역
+
+
+def test_meetings_table_shows_extraction_check():
+    db = {**DB, "meetings": {**DB["meetings"], "RAN1#126": {
+        **DB["meetings"]["RAN1#126"],
+        "health": {"summary": "확인 필요 1건", "stats": {}, "issues": [
+            {"level": "warning", "code": "x", "message": "읽지 못한 줄 <1>개", "samples": ["9.1 · Agreement: A"]}]}}}}
+    page = html_part(rh.render_html(CONFIG, db))
+    assert '<span class="chip candidate">확인 필요 1건</span>' in page
+    assert "읽지 못한 줄 &lt;1&gt;개" in page and "9.1 · Agreement: A" in page
+    assert "점검 기록 없음" in page            # RAN1#125에는 점검 기록이 없음

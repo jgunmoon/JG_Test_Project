@@ -31,10 +31,15 @@ from docx.text.paragraph import Paragraph
 from scripts.generate_report import ROOT, meeting_sort_key
 
 # 파싱 결과가 달라지는 수정을 하면 올립니다. DB의 회의별 parser_version과 다르면 자동 실행 때 다시 처리합니다.
-PARSER_VERSION = 4
+PARSER_VERSION = 5
 
 MARKER = re.compile(
     r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*:?", re.I)
+# 결정 표시처럼 보이지만 MARKER 형식(표시만 있는 한 줄)이 아닌 줄. 지금은 결정으로 읽지 못하므로 점검 대상으로 보고합니다.
+# 예: 'Agreement: 본문…'(같은 줄), 'Agreement;', 'Conclusion for UL SPS (after offline):', 'Agreement:⏎본문'(문단 안 줄바꿈)
+NEAR_MARKER = re.compile(
+    r"(?:agreements?|conclusions?|working\s+assumptions?)\b(?:\s*\([^)]*\))?\s*[:;]"
+    r"|(?:agreements?|conclusions?|working\s+assumptions?)\b[^\n]{0,100}:\s*$", re.I)
 END_MARKER = re.compile(r"(observations?|decision)\s*:?", re.I)
 TDOC = re.compile(r"R1-\d{7}\b")
 # 'FL summary 1 on 9.1.1', 'Summary of proposals for 9.1.1' 등. TS 번호(38.214)는 걸리지 않도록 자릿수를 제한합니다.
@@ -133,7 +138,14 @@ def _table_lines(table):
     return lines
 
 
-def parse_chair_notes(path, meeting, source_url, agenda=None):
+def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
+    """stats에 dict를 넘기면 추출 점검용 수치를 채웁니다 (scripts/health.py가 사용).
+
+    markers: 결정 표시 줄 수, extracted: 기록한 결정 수, quoted: 이전 회의 합의 인용(제외),
+    empty: 본문을 못 읽은 표시, outside: 첫 Agenda 이전의 결정, unrecognized: 결정 표시처럼 보이지만 읽지 못한 줄
+    """
+    stats = {} if stats is None else stats
+    stats.update(markers=0, extracted=0, quoted=0, empty=0, outside=0, unrecognized=[])
     document = docx.Document(str(path))
     agenda_index = [(n, _norm_title(t)) for n, t in (agenda or {}).items()]
     meeting_base = re.match(r"(.*/WG1_RL1/[^/]+/)", source_url)
@@ -148,6 +160,10 @@ def parse_chair_notes(path, meeting, source_url, agenda=None):
     def close():
         nonlocal block
         # Agenda 제목 아래에 있는 결정은 모두 기록합니다 (첫 Agenda 제목 이전의 서문은 제외).
+        if block and not block["skip"] and not block["lines"]:
+            stats["empty"] += 1
+        if block and not block["skip"] and block["lines"] and not numbers:
+            stats["outside"] += 1
         if block and not block["skip"] and block["lines"]:
             if numbers:
                 agenda = numbers[-1] if numbers else ""
@@ -207,7 +223,11 @@ def parse_chair_notes(path, meeting, source_url, agenda=None):
             kind = re.sub(r"s$", "", marker.group("kind").lower())
             # 'Agreement (RAN1#124bis)'처럼 이전 회의 합의를 인용한 것은 신규 결정이 아닙니다.
             block = {"type": TYPE_NAMES[kind], "lines": [], "ffs": [], "skip": bool(marker.group("ref"))}
+            stats["markers"] += 1
+            stats["quoted"] += bool(marker.group("ref"))
             continue
+        if NEAR_MARKER.match(text):
+            stats["unrecognized"].append({"agenda": numbers[-1] if numbers else "", "text": " ".join(text.split())})
         if TDOC.match(text) or END_MARKER.fullmatch(text):
             close()
             if TDOC.match(text):
@@ -236,6 +256,7 @@ def parse_chair_notes(path, meeting, source_url, agenda=None):
             if text.upper().startswith("FFS"):
                 block["ffs"].append(text)
     close()
+    stats["extracted"] = len(entries)
     return entries, warnings
 
 

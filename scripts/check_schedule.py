@@ -11,10 +11,12 @@
 """
 import argparse
 import json
+import os
 
 import yaml
 
 from scripts import fetch_ftp_docs as ff
+from scripts import health
 from scripts.generate_report import ROOT, meeting_sort_key, write_reports
 from scripts.parse_agreements import (PARSER_VERSION, meeting_id_from_folder, merge_meeting, parse_agenda_csv,
                                      parse_chair_notes)
@@ -48,6 +50,18 @@ def pending_meetings(db, folders, finder, since):
     return pending
 
 
+def report_issues(meeting, issues):
+    """점검 결과를 출력합니다. GitHub Actions에서는 '확인 필요'를 실행 화면의 경고로도 띄웁니다."""
+    in_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+    for i in issues:
+        mark = "확인 필요" if i["level"] == "warning" else "참고"
+        print(f"    [{mark}] {i['message']}")
+        for sample in i["samples"]:
+            print(f"        - {sample}")
+        if in_actions and i["level"] == "warning":
+            print(f"::warning title={meeting} 추출 점검::{i['message']}")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dry-run", action="store_true", help="처리할 회의만 출력")
@@ -72,16 +86,20 @@ def main():
         path = ff.download_chair_notes(p["folder"], p["name"], p["url"])
         agenda_csv = ff.fetch_agenda_csv(p["folder"])
         agenda = parse_agenda_csv(agenda_csv) if agenda_csv else None
-        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda)
-        for w in warnings:
-            print(f"  경고: {w}")
-        merge_meeting(db, p["meeting"], entries, {
+        stats = {}
+        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda, stats=stats)
+        meta = {
             "ftp_dir": p["folder"],
             "chair_notes_url": p["url"],
             "agenda_source": "agenda.csv" if agenda else "chair_notes_numbering",
             "parser_version": PARSER_VERSION,
-        })
-        print(f"  {p['meeting']}: {len(entries)}건 추출")
+        }
+        merge_meeting(db, p["meeting"], entries, meta)
+        issues = health.check(p["meeting"], db, stats, warnings, agenda)
+        meta["health"] = {"summary": health.summary(issues), "issues": issues,
+                          "stats": {k: v for k, v in stats.items() if k != "unrecognized"}}
+        print(f"  {p['meeting']}: {len(entries)}건 추출 · 추출 점검: {meta['health']['summary']}")
+        report_issues(p["meeting"], issues)
 
     write_reports(config, db, ROOT / "reports")
     DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

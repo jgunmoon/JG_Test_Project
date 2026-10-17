@@ -117,6 +117,10 @@ table.tree .depth-0 td { background: var(--bg); font-weight: 600; }
 .hist { display: block; font-size: 12px; color: var(--ink-3); }
 .toggle { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px;
   background: var(--panel); color: var(--accent); cursor: pointer; white-space: nowrap; }
+details.health { border: 0; background: none; }
+details.health > summary { padding: 0; }
+details.health[open] > summary { border-bottom: 0; }
+details.health ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; max-width: 70ch; }
 .agenda-entries { display: grid; gap: 10px; padding: 4px 4px 8px; }
 button.cell { font: inherit; font-family: var(--font-data); font-variant-numeric: tabular-nums; color: var(--accent);
   background: none; border: 0; border-radius: 4px; padding: 1px 6px; margin: -1px -6px; cursor: pointer;
@@ -445,6 +449,20 @@ def _agenda_tree(index, sections, meetings, base):
 </section>"""
 
 
+def _health_cell(h):
+    if not h:
+        return '<span class="small muted">점검 기록 없음</span>'
+    if not h["issues"]:
+        return '<span class="small muted">이상 없음</span>'
+    warn = any(i["level"] == "warning" for i in h["issues"])
+    chip = f'<span class="chip {"candidate" if warn else "confirmed"}">{_e(h["summary"])}</span>'
+    items = "".join(
+        f'<li><strong>{"확인 필요" if i["level"] == "warning" else "참고"}</strong> {_e(i["message"])}'
+        + ("<ul>" + "".join(f'<li class="mono small">{_e(x)}</li>' for x in i["samples"]) + "</ul>" if i["samples"] else "")
+        + "</li>" for i in h["issues"])
+    return f'<details class="health"><summary>{chip}</summary><ul class="small">{items}</ul></details>'
+
+
 def _json_for_script(data):
     # 본문에 '</script>'나 '<!--'가 있어도 스크립트 태그가 끝나지 않도록 막습니다.
     return json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/").replace("<!--", "<\\!--")
@@ -540,13 +558,17 @@ def render_body(config, db):
     body = []
     for m in reversed(meetings):
         n = sum(1 for e in db["entries"] if e["meeting"] == m)
-        cn = db.get("meetings", {}).get(m, {}).get("chair_notes_url")
+        meta = db.get("meetings", {}).get(m, {})
+        cn = meta.get("chair_notes_url")
         body.append(f'<tr><td class="mono">{_link(f"{base}by_meeting/{meeting_slug(m)}.md", m)}</td>{_num(n)}'
+                    f'<td>{_health_cell(meta.get("health"))}</td>'
                     f'<td>{_link(cn, "Chair notes") if cn else ""}</td></tr>')
     parts.append(f"""<section>
-  <h2>회의별 리포트</h2>
+  <h2>회의별 리포트와 추출 점검</h2>
+  <p class="lede">추출 점검은 결정이 조용히 누락됐을 가능성을 회의마다 확인한 결과입니다.
+    '확인 필요'를 누르면 내용과 예시가 나오며, 해당 Agenda를 Chair notes 원문과 대조해 보세요.</p>
   <div class="table-scroll"><table>
-    <thead><tr><th>회의</th><th class="num">결정 수</th><th>원문</th></tr></thead>
+    <thead><tr><th>회의</th><th class="num">결정 수</th><th>추출 점검</th><th>원문</th></tr></thead>
     <tbody>{"".join(body)}</tbody>
   </table></div>
 </section>

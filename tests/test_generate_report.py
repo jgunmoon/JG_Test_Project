@@ -127,3 +127,22 @@ def test_output_is_deterministic(tmp_path):
     gr.write_reports(CONFIG, json.loads(json.dumps(db)), tmp_path / "b")
     for f in (tmp_path / "a").rglob("*.*"):
         assert f.read_text() == (tmp_path / "b" / f.relative_to(tmp_path / "a")).read_text()
+
+
+HEALTH = {"summary": "확인 필요 1건", "stats": {"markers": 3, "extracted": 2},
+          "issues": [{"level": "warning", "code": "unrecognized_markers", "message": "읽지 못한 줄 1개",
+                      "samples": ["9.1 · Agreement: Adopt X"]}]}
+
+
+def test_readme_and_meeting_report_show_extraction_check():
+    db = make_db(entry("RAN1#118", 1))
+    db["meetings"] = {"RAN1#118": {"health": HEALTH}}
+    md = gr.render_dashboard(CONFIG, db)
+    assert "## 추출 점검" in md and "| RAN1#118 | 확인 필요 1건 | 읽지 못한 줄 1개 |" in md
+    rep = gr.render_meeting_report("RAN1#118", CONFIG, db)
+    assert "> **추출 점검: 확인 필요 1건**" in rep and "9.1 · Agreement: Adopt X" in rep
+
+
+def test_meeting_without_health_record_is_shown_as_not_checked():
+    db = make_db(entry("RAN1#118", 1))
+    assert "| RAN1#118 | 점검 기록 없음 |" in gr.render_dashboard(CONFIG, db)

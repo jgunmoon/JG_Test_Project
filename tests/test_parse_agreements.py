@@ -234,3 +234,36 @@ def test_title_wording_difference_is_fine_when_number_exists_in_agenda(tmp_path)
     entries, warnings = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, agenda=agenda)
     assert entries[0]["agenda_item"] == "1.1"
     assert warnings == []
+
+
+def test_stats_flag_marker_like_lines_the_parser_did_not_recognise(tmp_path):
+    # 실제 문서에서 본 형태: 같은 줄 본문, 세미콜론, 설명 붙은 표시, 문단 안 줄바꿈
+    d = Doc()
+    d.heading("Rel-20 Study of 6GR", 0)
+    d.heading("Waveform", 1)
+    d.para("Agreement:")
+    d.para("Normal decision")
+    d.para("Agreement: Introduce the following Rel. 19 UE FGs")
+    d.para("Agreement;")
+    d.para("Text after semicolon marker")
+    d.para("Conclusion for UL SPS with multi-TBS (after offline):")
+    d.para("Agreement:\nAt least the following directions are studied")
+    d.para("Working Assumption from RAN1#124 is not necessarily to be confirmed.")  # 결정 표시가 아님
+    d.para("Agreement:")                                                             # 본문 없음
+    d.heading("Channel coding", 1)
+    stats = {}
+    entries, _ = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, stats=stats)
+    assert stats["markers"] == 2 and stats["extracted"] == len(entries) == 1
+    assert stats["empty"] == 1
+    assert [(u["agenda"], u["text"]) for u in stats["unrecognized"]] == [
+        ("1.1", "Agreement: Introduce the following Rel. 19 UE FGs"),
+        ("1.1", "Agreement;"),
+        ("1.1", "Conclusion for UL SPS with multi-TBS (after offline):"),
+        ("1.1", "Agreement: At least the following directions are studied"),
+    ]
+
+
+def test_stats_count_quoted_old_agreements(sample):
+    stats = {}
+    pa.parse_chair_notes(sample, "RAN1#999", URL, stats=stats)
+    assert stats["quoted"] == 1 and stats["unrecognized"] == []

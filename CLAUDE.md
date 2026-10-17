@@ -68,7 +68,7 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
 
 - 팀 공용 실행: GitHub 저장소 → Actions → "RAN1 tracker" → "Run workflow" (`.github/workflows/auto_tracker.yml`).
   지금은 수동 실행만 켜져 있고, 매일 자동 실행은 파일 안 주석의 `schedule`을 추가하면 됩니다.
-  실행이 끝나면 `reports/`가 GitHub Pages로 게시됩니다: https://jgunmoon.github.io/JG_Test_Project/
+  실행이 끝나면 `reports/`가 GitHub Pages로 게시됩니다: https://jgunmoon.github.io/RAN1-Decision-Tracker/
 - 3GPP 서버(Cloudflare)는 기본 curl/requests User-Agent를 403으로 거부합니다. 브라우저 User-Agent를 보내야 합니다.
 - 3GPP 서버는 없는 폴더에도 404가 아니라 403을 돌려줍니다. 폴더 존재 여부는 상위 목록으로 확인합니다.
 - '회의 종료 다음 날' 트리거는 일정표가 아니라 FTP에 회의 종료본(_eom)이 새로 올라왔는지(또는 갱신됐는지)로 판단합니다.

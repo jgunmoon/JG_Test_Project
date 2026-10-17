@@ -236,31 +236,75 @@ def test_title_wording_difference_is_fine_when_number_exists_in_agenda(tmp_path)
     assert warnings == []
 
 
-def test_stats_flag_marker_like_lines_the_parser_did_not_recognise(tmp_path):
-    # 실제 문서에서 본 형태: 같은 줄 본문, 세미콜론, 설명 붙은 표시, 문단 안 줄바꿈
+def test_marker_variants_seen_in_real_documents_are_read_as_decisions(tmp_path):
+    # 실제 문서에서 본 형태: 같은 줄 본문, 세미콜론, 콜론 중복, 설명 붙은 표시, 괄호 설명, 문단 안 줄바꿈
+    d = Doc()
+    d.heading("Rel-20 Study of 6GR", 0)
+    d.heading("Waveform", 1)
+    d.para("Agreement: Introduce the following Rel. 19 UE FGs")
+    d.para("FFS: component 3")
+    d.para("Agreement;")
+    d.para("Text after semicolon marker")
+    d.para("Agreement:: Adopt the following changes")
+    d.para("Conclusion for UL SPS with multi-TBS (after offline):")
+    d.para("No consensus")
+    d.para("Agreement (updated on Wednesday)")
+    d.para("Adopt the TP")
+    d.para("Agreement:\nAt least the following directions are studied")
+    d.para("Working Assumption from RAN1#124 is not necessarily to be confirmed.")  # 결정 표시가 아님 (본문)
+    d.para("Agreements from RAN1#124 on waveform:")                                # 이전 회의 합의 인용
+    d.para("Old text")
+    stats = {}
+    entries, _ = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, stats=stats)
+    assert [(e["type"], e["text"]) for e in entries] == [
+        ("Agreement", "Introduce the following Rel. 19 UE FGs\nFFS: component 3"),
+        ("Agreement", "Text after semicolon marker"),
+        ("Agreement", "Adopt the following changes"),
+        ("Conclusion", "No consensus"),
+        ("Agreement", "Adopt the TP"),
+        ("Agreement", "At least the following directions are studied\n"
+                      "Working Assumption from RAN1#124 is not necessarily to be confirmed."),
+    ]
+    assert entries[0]["ffs"] == ["FFS: component 3"]
+    assert stats["markers"] == 7 and stats["quoted"] == 1 and stats["empty"] == 0
+    assert stats["unrecognized"] == []
+
+
+def test_plain_tdoc_line_right_after_marker_is_the_decision_body(tmp_path):
+    d = Doc()
+    d.heading("Maintenance", 0)
+    d.heading("UE features", 1)
+    d.para("Agreement")
+    d.tdoc("R1-2509494", " is endorsed for updating RAN1 UE features list.")
+    d.para("Agreement")
+    d.tdoc("R1-2603365", "\tUpdated RAN1 UE features list\tModerators")
+    d.tdoc("R1-2603366", "\tDraft LS on updated features list\tModerators")
+    d.tdoc("R1-2603255", "\tSummary#1 of UE features\tModerator", bold=True)   # 다음 결정의 근거 문서
+    d.para("Agreement:")
+    d.para("Adopt X")
+    d.tdoc("R1-2600009", "\tDiscussion on Y\tVendorA")                           # 본문 뒤 TDoc 줄은 결정을 닫음
+    d.para("Agreement:")                                                          # 본문 없음
+    stats = {}
+    entries, _ = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, stats=stats)
+    assert [e["text"] for e in entries] == [
+        "R1-2509494 is endorsed for updating RAN1 UE features list.",
+        "R1-2603365\tUpdated RAN1 UE features list\tModerators\nR1-2603366\tDraft LS on updated features list\tModerators",
+        "Adopt X",
+    ]
+    assert entries[2]["source"]["tdoc"] == "R1-2603255"
+    assert stats["empty"] == 1
+
+
+def test_stats_flag_marker_like_lines_the_parser_still_cannot_read(tmp_path):
     d = Doc()
     d.heading("Rel-20 Study of 6GR", 0)
     d.heading("Waveform", 1)
     d.para("Agreement:")
     d.para("Normal decision")
-    d.para("Agreement: Introduce the following Rel. 19 UE FGs")
-    d.para("Agreement;")
-    d.para("Text after semicolon marker")
-    d.para("Conclusion for UL SPS with multi-TBS (after offline):")
-    d.para("Agreement:\nAt least the following directions are studied")
-    d.para("Working Assumption from RAN1#124 is not necessarily to be confirmed.")  # 결정 표시가 아님
-    d.para("Agreement:")                                                             # 본문 없음
-    d.heading("Channel coding", 1)
+    d.para("Conclusion for case A; case B:")       # 표시처럼 보이지만 형식이 다름
     stats = {}
-    entries, _ = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, stats=stats)
-    assert stats["markers"] == 2 and stats["extracted"] == len(entries) == 1
-    assert stats["empty"] == 1
-    assert [(u["agenda"], u["text"]) for u in stats["unrecognized"]] == [
-        ("1.1", "Agreement: Introduce the following Rel. 19 UE FGs"),
-        ("1.1", "Agreement;"),
-        ("1.1", "Conclusion for UL SPS with multi-TBS (after offline):"),
-        ("1.1", "Agreement: At least the following directions are studied"),
-    ]
+    pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, stats=stats)
+    assert [(u["agenda"], u["text"]) for u in stats["unrecognized"]] == [("1.1", "Conclusion for case A; case B:")]
 
 
 def test_stats_count_quoted_old_agreements(sample):

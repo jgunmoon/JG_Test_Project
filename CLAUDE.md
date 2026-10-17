@@ -77,6 +77,9 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
   공식 Agenda에는 `10.5.0`처럼 Word 자동 번호로 표현되지 않는 0번 항목이 있어 계산값만 믿으면 번호가 밀립니다.
 - 파싱 결과가 달라지는 수정을 하면 `scripts/parse_agreements.py`의 `PARSER_VERSION`을 올립니다.
   다음 자동 실행 때 `track_from` 이후 회의가 모두 다시 처리됩니다.
+- 결정 표시는 `Agreement:` 한 줄 외에 같은 줄 본문(`Agreement: 본문`, `Agreement;`, `Agreement::`), 괄호 설명(`Agreement (updated on Wednesday)`),
+  설명 붙은 표시(`Conclusion for … (after offline):`), 문단 안 줄바꿈도 읽습니다. 괄호/설명에 `RAN1#…`이 있으면 이전 회의 인용으로 제외합니다.
+  표시 바로 다음의 굵지 않은 TDoc 줄(`R1-xxxx is endorsed …`)은 결정 본문으로 봅니다.
 - 회의 종료본 Chair notes는 `TSGR1_<번호>/Inbox/Chair_notes/` 의 `Chair notes RAN1#<번호>_eom*.docx` 입니다.
 - 내려받은 원본 문서는 `downloads/`(gitignore)나 임시 폴더에 두고 커밋하지 않습니다.
 
@@ -87,7 +90,7 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
   번호가 바뀌면 함께 표시하고, 제목이 바뀐 Agenda는 억지로 잇지 않고 '최신 회의에는 없는 Agenda'로 따로 보여줍니다.
 - Delta(직전 회의 대비)는 `scripts/delta.py`가 섹션별로 DB에서 계산합니다. FFS 후속 결정은 키워드 매칭 '후보'로만 표시하고 해소됐다고 단정하지 않습니다.
 - 추출 점검(`scripts/health.py`): 회의를 처리할 때마다 결정이 조용히 누락됐을 가능성을 확인해 DB의 회의 정보(`health`)에 저장합니다.
-  읽지 못한 결정 표시 줄(예: `Agreement: 본문`처럼 같은 줄에 쓴 형식), 본문 없는 결정, 결정 수 급감, 섹션 소실을 봅니다.
+  읽지 못한 결정 표시 줄, 본문 없는 결정, 결정 수 급감, 섹션 소실을 봅니다.
   결과는 Actions 경고, README의 '추출 점검', 대시보드 회의 목록에 나옵니다. '확인 필요'가 나오면 원문과 대조하고 파서를 고칩니다.
 - `reports/` 아래 파일은 생성물입니다. 직접 수정하지 말고 DB나 설정을 고친 뒤 다시 생성합니다.
 - DB 스키마와 필수 필드(출처 문서 번호, FTP 링크)는 `data/SCHEMA.md`를 따릅니다.

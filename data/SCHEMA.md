@@ -12,7 +12,7 @@ DB는 `scripts/parse_agreements.py`가 Chair notes에서 만들며, 같은 문�
       "ftp_dir": "TSGR1_126",
       "chair_notes_url": "https://www.3gpp.org/ftp/.../Chair%20notes%20RAN1%23126_eom1.docx",
       "agenda_source": "agenda.csv",
-      "parser_version": 5,
+      "parser_version": 6,
       "health": {"summary": "확인 필요 1건", "issues": [{"level": "warning", "code": "unrecognized_markers", "message": "…", "samples": ["…"]}],
                  "stats": {"markers": 356, "extracted": 356, "quoted": 0, "empty": 0, "outside": 0}}
     }

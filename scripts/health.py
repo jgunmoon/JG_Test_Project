@@ -27,7 +27,7 @@ def check(meeting, db, stats, warnings, agenda):
     if unrec:
         issues.append(_issue(
             "warning", "unrecognized_markers",
-            f"결정 표시처럼 보이지만 읽지 못한 줄 {len(unrec)}개 (예: 'Agreement: 본문'처럼 같은 줄에 쓴 형식). "
+            f"결정 표시처럼 보이지만 읽지 못한 줄 {len(unrec)}개. "
             "이 결정들은 DB에 없을 수 있습니다.",
             [f"{u['agenda']} · {u['text'][:100]}" for u in unrec]))
     if stats.get("empty"):

@@ -31,12 +31,19 @@ from docx.text.paragraph import Paragraph
 from scripts.generate_report import ROOT, meeting_sort_key
 
 # 파싱 결과가 달라지는 수정을 하면 올립니다. DB의 회의별 parser_version과 다르면 자동 실행 때 다시 처리합니다.
-PARSER_VERSION = 5
+PARSER_VERSION = 6
 
+# 결정 표시 줄. 표시만 있는 한 줄('Agreement:')이 기본이고, 아래 변형도 결정으로 읽습니다.
+# - 같은 줄 본문: 'Agreement: Adopt the following changes…' (콜론 중복 'Agreement::', 세미콜론 'Agreement;' 포함)
+# - 괄호 설명: 'Agreement (updated on Wednesday)'. 괄호에 'RAN1#…'이 있으면 이전 회의 합의 인용이라 제외합니다.
+# - 설명 붙은 표시: 'Conclusion for UL SPS with multi-TBS (after offline):' (줄 끝 콜론 필수)
+# - 문단 안 줄바꿈: 'Agreement:⏎본문' (첫 줄만 표시로 보고 나머지는 본문)
 MARKER = re.compile(
-    r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*:?", re.I)
-# 결정 표시처럼 보이지만 MARKER 형식(표시만 있는 한 줄)이 아닌 줄. 지금은 결정으로 읽지 못하므로 점검 대상으로 보고합니다.
-# 예: 'Agreement: 본문…'(같은 줄), 'Agreement;', 'Conclusion for UL SPS (after offline):', 'Agreement:⏎본문'(문단 안 줄바꿈)
+    r"(?P<kind>agreements?|conclusions?|working assumptions?)\s*(?:\((?P<ref>[^)]*)\))?\s*(?:[:;]+\s*(?P<rest>.*))?",
+    re.I)
+DESC_MARKER = re.compile(r"(?P<kind>agreements?|conclusions?|working assumptions?)\s+(?P<ref>[^:;]{1,100}?)\s*:", re.I)
+QUOTED = re.compile(r"RAN1\s*#", re.I)
+# 결정 표시처럼 보이지만 위 형식으로 읽지 못한 줄. 추출 점검 대상으로 보고합니다.
 NEAR_MARKER = re.compile(
     r"(?:agreements?|conclusions?|working\s+assumptions?)\b(?:\s*\([^)]*\))?\s*[:;]"
     r"|(?:agreements?|conclusions?|working\s+assumptions?)\b[^\n]{0,100}:\s*$", re.I)
@@ -130,6 +137,20 @@ def _starts_bold(paragraph):
     return bool(runs) and bool(runs[0].bold)
 
 
+def _marker(text):
+    """결정 표시 줄이면 (유형, 인용 여부, 본문 줄 목록)을, 아니면 None을 돌려줍니다."""
+    first, *more = text.split("\n")
+    first = first.strip()
+    m = MARKER.fullmatch(first) or DESC_MARKER.fullmatch(first)
+    if not m:
+        return None
+    kind = TYPE_NAMES[re.sub(r"s$", "", m.group("kind").lower())]
+    ref = m.group("ref") or ""
+    rest = m.groupdict().get("rest") or ""
+    body = [line.strip() for line in [rest] + more if line.strip()]
+    return kind, bool(QUOTED.search(ref)), body
+
+
 def _table_lines(table):
     lines = []
     for row in table.rows:
@@ -217,17 +238,24 @@ def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
         if _is_heading(b) or not text:
             continue
 
-        marker = MARKER.fullmatch(text)
+        marker = _marker(text)
         if marker:
             close()
-            kind = re.sub(r"s$", "", marker.group("kind").lower())
+            kind, quoted, body = marker
             # 'Agreement (RAN1#124bis)'처럼 이전 회의 합의를 인용한 것은 신규 결정이 아닙니다.
-            block = {"type": TYPE_NAMES[kind], "lines": [], "ffs": [], "skip": bool(marker.group("ref"))}
+            block = {"type": kind, "lines": body, "ffs": [l for l in body if l.upper().startswith("FFS")],
+                     "skip": quoted}
             stats["markers"] += 1
-            stats["quoted"] += bool(marker.group("ref"))
+            stats["quoted"] += quoted
             continue
         if NEAR_MARKER.match(text):
             stats["unrecognized"].append({"agenda": numbers[-1] if numbers else "", "text": " ".join(text.split())})
+        # 'Agreement' 바로 다음의 굵지 않은 TDoc 줄('R1-2509494 is endorsed …', 승인 문서 목록)은 결정 본문입니다.
+        # 굵은 TDoc 줄은 다음 결정의 근거 문서이므로 결정을 닫습니다.
+        if (block and TDOC.match(text) and not _starts_bold(b)
+                and all(TDOC.match(line) for line in block["lines"])):
+            block["lines"].append(text)
+            continue
         if TDOC.match(text) or END_MARKER.fullmatch(text):
             close()
             if TDOC.match(text):

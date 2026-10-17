@@ -118,6 +118,12 @@ table.tree .depth-0 td { background: var(--bg); font-weight: 600; }
 .toggle { font: inherit; font-size: 12px; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 999px;
   background: var(--panel); color: var(--accent); cursor: pointer; white-space: nowrap; }
 .agenda-entries { display: grid; gap: 10px; padding: 4px 4px 8px; }
+button.cell { font: inherit; font-family: var(--font-data); font-variant-numeric: tabular-nums; color: var(--accent);
+  background: none; border: 0; border-radius: 4px; padding: 1px 6px; margin: -1px -6px; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px; }
+button.cell:hover { background: var(--bg); }
+button.cell[aria-pressed="true"], .toggle[aria-pressed="true"] { background: var(--accent); color: var(--panel); text-decoration: none; }
+button.cell:focus-visible, .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .cell-text { white-space: pre-line; max-height: 9em; overflow-y: auto; min-width: 24ch; overflow-wrap: anywhere; }
 .counts { font-family: var(--font-data); font-size: 12px; color: var(--ink-3); }
 footer { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 16px; }
@@ -201,14 +207,26 @@ SCRIPT = r"""
   }
   [q].forEach(n => n.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 150); }));
   [fSection, fMeeting, fType, fWord].forEach(n => n.addEventListener('change', run));
-  // Agenda 목차: '결정 보기'를 누르면 그 Agenda의 결정을 최신 회의부터 펼칩니다 (회의 간 같은 Agenda 포함).
-  document.querySelectorAll('[data-agenda]').forEach(btn => btn.addEventListener('click', () => {
-    const row = btn.closest('tr').nextElementSibling, box = row.querySelector('.agenda-entries');
-    if (!box.childElementCount) DATA.entries.filter(e => e.key === btn.dataset.agenda).reverse().forEach(e => box.append(render(e, null)));
-    row.hidden = !row.hidden;
-    btn.setAttribute('aria-expanded', String(!row.hidden));
-    btn.textContent = (row.hidden ? '결정 보기' : '접기') + ` (${btn.dataset.count})`;
-  }));
+  // Agenda 목차: '결정 보기'는 그 Agenda의 전체 회의 결정을, 회의별 숫자는 그 회의 결정만(하위 Agenda 포함) 펼칩니다.
+  // 같은 버튼을 다시 누르면 접히고, 다른 버튼을 누르면 그 내용으로 바뀝니다.
+  function showAgenda(tr, state, keys, meeting) {
+    const row = tr.nextElementSibling, box = row.querySelector('.agenda-entries');
+    const closing = !row.hidden && box.dataset.state === state;
+    tr.querySelectorAll('button[aria-pressed]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    if (closing) { row.hidden = true; box.dataset.state = ''; return; }
+    const list = DATA.entries.filter(e => keys.includes(e.key) && (!meeting || e.meeting === meeting)).reverse();
+    box.replaceChildren(el('div', 'summary-line', `${meeting || '전체 회의'} · ${list.length}건`));
+    list.forEach(e => box.append(render(e, null)));
+    box.dataset.state = state; row.hidden = false;
+    tr.querySelector(`button[data-state="${CSS.escape(state)}"]`)?.setAttribute('aria-pressed', 'true');
+  }
+  document.querySelectorAll('#agenda tr[data-keys]').forEach(tr => {
+    const keys = JSON.parse(tr.dataset.keys);
+    tr.querySelectorAll('button.cell').forEach(b => { b.dataset.state = b.dataset.meet;
+      b.addEventListener('click', () => showAgenda(tr, b.dataset.meet, keys, b.dataset.meet)); });
+    tr.querySelectorAll('[data-agenda]').forEach(b => { b.dataset.state = 'all';
+      b.addEventListener('click', () => showAgenda(tr, 'all', [b.dataset.agenda], null)); });
+  });
   document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { q.value = b.dataset.preset; run(); q.focus(); }));
   run();
 })();
@@ -343,9 +361,24 @@ def _delta_detail(name, d):
 </details>"""
 
 
-def _toggle(key, count, cols):
+def _toggle(key, count):
     return (f'<td><button type="button" class="toggle" data-agenda="{_e(key)}" data-count="{count}" '
-            f'aria-expanded="false">결정 보기 ({count})</button></td></tr>'
+            f'aria-pressed="false">결정 보기 ({count})</button></td>')
+
+
+def _meet_cells(counts, meetings):
+    """회의별 결정 수. 0이 아니면 그 회의 결정만 펼치는 버튼입니다."""
+    out = []
+    for m in meetings:
+        n = counts.get(m, 0)
+        out.append(f'<td class="num"><button type="button" class="cell" data-meet="{_e(m)}" aria-pressed="false">{n}</button></td>'
+                   if n else _num(0))
+    return "".join(out)
+
+
+def _tree_row(css, keys, label_html, cells, total, toggle, cols):
+    # 연결 키에 '||'가 들어 있어 구분자로 잇지 않고 JSON 배열로 넘깁니다.
+    return (f'<tr class="{css}" data-keys="{_e(json.dumps(keys, ensure_ascii=False))}">{label_html}{cells}{_num(total)}{toggle}</tr>'
             f'<tr class="agenda-detail" hidden><td colspan="{cols}"><div class="agenda-entries"></div></td></tr>')
 
 
@@ -368,11 +401,12 @@ def _agenda_tree(index, sections, meetings, base):
             hist = agenda.number_history(lin, meetings) if lin else ""
             label = (f'<span class="agenda-num">{_e(r["number"])}</span>{_e(r["title"])}'
                      + (f'<span class="hist">번호 변경 {_e(hist)}</span>' if hist else ""))
-            cells = "".join(_num(r["counts"].get(m, 0)) for m in meetings)
-            row = (f'<tr class="depth-{r["depth"]}"><td class="agenda" style="padding-left: {12 + 18 * r["depth"]}px">'
-                   f'{label}</td>{cells}{_num(sum(r["counts"].values()))}')
             own = sum(lin["counts"].values()) if lin else 0
-            body.append(row + (_toggle(r["key"], own, cols) if lin else "<td></td></tr>"))
+            body.append(_tree_row(
+                f'depth-{r["depth"]}', r["keys"],
+                f'<td class="agenda" style="padding-left: {12 + 18 * r["depth"]}px">{label}</td>',
+                _meet_cells(r["counts"], meetings), sum(r["counts"].values()),
+                _toggle(r["key"], own) if lin else "<td></td>", cols))
         blocks.append(f"""<details>
   <summary><h3><span class="agenda-num">{_e(sec["number"])}</span>{_e(sec["title"])}</h3>
     <span class="counts">섹션 전체 {sum(total.values())}건 · {" · ".join(f"{_e(_short(m))} {total.get(m, 0)}" for m in meetings)}</span>
@@ -387,10 +421,12 @@ def _agenda_tree(index, sections, meetings, base):
     if old:
         body = []
         for lin in old:
-            cells = "".join(_num(lin["counts"].get(m, 0)) for m in meetings)
-            body.append(f'<tr><td class="agenda"><span class="agenda-num">{_e(lin["last_number"])}</span>{_e(lin["title"])}'
-                        f'<span class="hist">{_e(lin["section_title"])} · 마지막 {_e(lin["last_meeting"])}</span></td>'
-                        f'{cells}{_num(sum(lin["counts"].values()))}' + _toggle(lin["key"], sum(lin["counts"].values()), cols))
+            total = sum(lin["counts"].values())
+            body.append(_tree_row(
+                "retired", [lin["key"]],
+                f'<td class="agenda"><span class="agenda-num">{_e(lin["last_number"])}</span>{_e(lin["title"])}'
+                f'<span class="hist">{_e(lin["section_title"])} · 마지막 {_e(lin["last_meeting"])}</span></td>',
+                _meet_cells(lin["counts"], meetings), total, _toggle(lin["key"], total), cols))
         blocks.append(f"""<details>
   <summary><h3>최신 회의에는 없는 Agenda</h3><span class="small muted">{len(old)}개 · 삭제됐거나 제목이 바뀐 Agenda (자동으로 잇지 않음)</span></summary>
   <div class="table-scroll"><table class="tree">
@@ -401,6 +437,7 @@ def _agenda_tree(index, sections, meetings, base):
     return f"""<section id="agenda">
   <h2>Agenda 목차</h2>
   <p class="lede">{_e(meetings[-1])}의 공식 Agenda 목차입니다. 표의 숫자는 회의별 결정 수이며 상위 Agenda는 하위 Agenda를 합친 값입니다.
+    회의별 숫자를 누르면 그 회의의 결정만(하위 Agenda 포함), '결정 보기'를 누르면 모든 회의의 결정을 펼칩니다. 다시 누르면 접힙니다.
     회의 간에는 같은 섹션 안의 같은 Agenda 제목끼리 이어 붙이고, 번호가 바뀐 경우 함께 표시합니다.
     {_e(meetings[-1])}에 없는 Agenda(삭제·통합·제목 변경)의 결정은 표에서 빠지고 맨 아래 '최신 회의에는 없는 Agenda'에 따로 모았습니다.
     그래서 섹션 제목 옆의 '섹션 전체' 건수가 표의 합계보다 클 수 있습니다.</p>

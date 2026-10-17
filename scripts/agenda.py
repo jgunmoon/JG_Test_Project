@@ -63,7 +63,8 @@ def number_history(lineage, meetings):
 def tree(index):
     """최신 회의의 Agenda 목차(결정이 있는 Agenda와 그 상위 제목)를 번호 순으로 돌려줍니다.
 
-    각 행의 counts는 그 Agenda와 하위 Agenda의 회의별 결정 수 합계입니다 (이전 회의 이력 포함).
+    각 행의 counts는 그 Agenda와 하위 Agenda의 회의별 결정 수 합계이고 (이전 회의 이력 포함),
+    keys는 그 합계에 들어간 연결 키 목록입니다.
     """
     latest = index["meetings"][-1]
     nodes = {}
@@ -72,18 +73,20 @@ def tree(index):
             continue
         for depth, n in enumerate(e["agenda_path"]):
             nodes.setdefault(n["number"], {"number": n["number"], "title": n["title"], "depth": depth, "key": None,
-                                           "section": section_key(e), "counts": defaultdict(int)})
+                                           "section": section_key(e), "counts": defaultdict(int), "keys": set()})
         nodes[e["agenda_path"][-1]["number"]]["key"] = index["entry_keys"][e["id"]]
     current = {lin["key"]: lin for lin in index["lineages"].values() if lin["last_meeting"] == latest}
     for lin in current.values():
         num = lin["last_number"]
         for row in nodes.values():
             if num == row["number"] or num.startswith(row["number"] + "."):
+                row["keys"].add(lin["key"])
                 for m, c in lin["counts"].items():
                     row["counts"][m] += c
     rows = sorted(nodes.values(), key=lambda r: number_key(r["number"]))
     for r in rows:
         r["counts"] = dict(r["counts"])
+        r["keys"] = sorted(r["keys"])  # 이 행과 하위 Agenda의 연결 키 (회의별 숫자를 눌렀을 때 펼칠 범위)
     return rows
 
 

@@ -54,6 +54,8 @@ def test_tree_follows_latest_meeting_and_sums_descendants():
     assert bm["counts"] == {"RAN1#125": 1, "RAN1#126": 2} and bm["key"]
     assert rows[0]["counts"] == {"RAN1#125": 1, "RAN1#126": 3}     # 하위 Agenda 합계 (이전 회의 이력 포함)
     assert rows[2]["key"] is None                                   # 결정이 직접 기록되지 않은 상위 제목
+    assert rows[2]["keys"] == sorted({bm["key"], rows[3]["key"]})   # 상위 행은 하위 Agenda 연결 키를 모두 가짐
+    assert bm["keys"] == [bm["key"]]
 
 
 def test_agendas_missing_from_latest_meeting_are_listed_separately():

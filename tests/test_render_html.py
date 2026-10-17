@@ -76,3 +76,11 @@ def test_section_card_chart_has_one_bar_per_meeting():
 
 def test_output_is_deterministic():
     assert rh.render_html(CONFIG, DB) == rh.render_html(CONFIG, DB)
+
+
+def test_meeting_counts_in_agenda_tree_are_buttons_for_that_meeting():
+    page = html_part(rh.render_html(CONFIG, DB))
+    # 숫자 셀은 해당 회의 결정만 펼치는 버튼, 0건은 버튼이 아님
+    assert '<button type="button" class="cell" data-meet="RAN1#126" aria-pressed="false">2</button>' in page
+    assert 'data-keys="[&quot;rel-20 study of 6gr || beam management&quot;]"' in page   # JSON 배열 (키에 '||' 포함)
+    assert page.count('class="agenda-detail"') >= 4          # 모든 행 아래에 펼침 영역

@@ -212,7 +212,7 @@ def render_meeting_report(meeting, config, db):
 def render_dashboard(config, db):
     from scripts import agenda, delta
 
-    lines = ["# RAN1 6G PHY 트래커 대시보드", "", GENERATED_NOTE, ""]
+    lines = ["# RAN1 결정 트래커 (RAN1 Decision Tracker)", "", GENERATED_NOTE, ""]
     meetings = _meetings(db)
     if not meetings:
         return "\n".join(lines + ["아직 처리된 회의가 없습니다.", ""])

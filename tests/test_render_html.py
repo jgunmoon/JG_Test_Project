@@ -35,9 +35,9 @@ def html_part(page):
 
 def test_standalone_page_is_a_full_document_and_fragment_is_not():
     page = rh.render_html(CONFIG, DB)
-    assert page.startswith("<!doctype html>") and "<title>RAN1 6G PHY Tracker</title>" in page
+    assert page.startswith("<!doctype html>") and "<title>RAN1 Decision Tracker</title>" in page
     frag = rh.render_html(CONFIG, DB, standalone=False)
-    assert "<!doctype" not in frag and "<html" not in frag and "<title>RAN1 6G PHY Tracker</title>" in frag
+    assert "<!doctype" not in frag and "<html" not in frag and "<title>RAN1 Decision Tracker</title>" in frag
 
 
 def test_text_from_documents_is_escaped():

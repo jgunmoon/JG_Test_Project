@@ -11,7 +11,7 @@ from html import escape
 from scripts import agenda, delta
 from scripts.generate_report import TYPES, all_sections, meeting_slug, meeting_sort_key, slug
 
-TITLE = "RAN1 6G PHY Tracker"
+TITLE = "RAN1 Decision Tracker"
 TYPE_LABEL = {"Agreement": "Agreement", "Working Assumption": "WA", "Conclusion": "Conclusion"}
 
 CSS = """

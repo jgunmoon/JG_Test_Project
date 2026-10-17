@@ -270,6 +270,21 @@ def test_marker_variants_seen_in_real_documents_are_read_as_decisions(tmp_path):
     assert stats["unrecognized"] == []
 
 
+def test_marker_inside_a_decision_sub_list_stays_in_that_decision(tmp_path):
+    d = Doc()
+    d.heading("Rel-20 Study of 6GR", 0)
+    d.heading("Channel coding", 1)
+    d.para("Agreement:")
+    d.bullet("For 6G LDPC")
+    d.bullet("Working assumption: For data rate within NR range, reuse NR LDPC", ilvl=1)
+    d.bullet("FFS: extension", ilvl=1)
+    stats = {}
+    entries, _ = pa.parse_chair_notes(d.save(tmp_path), "RAN1#999", URL, stats=stats)
+    assert len(entries) == 1 and entries[0]["type"] == "Agreement"
+    assert "  - Working assumption: For data rate within NR range, reuse NR LDPC" in entries[0]["text"]
+    assert stats["unrecognized"] == []
+
+
 def test_plain_tdoc_line_right_after_marker_is_the_decision_body(tmp_path):
     d = Doc()
     d.heading("Maintenance", 0)

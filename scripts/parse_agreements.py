@@ -239,7 +239,10 @@ def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
             continue
 
         marker = _marker(text)
-        if marker:
+        num = _num_pr(b)
+        # 결정 안 하위 목록의 '- Working assumption: 본문'은 그 결정의 일부입니다 (새 결정이 아님).
+        nested = bool(block and marker and marker[2] and num and num[1])
+        if marker and not nested:
             close()
             kind, quoted, body = marker
             # 'Agreement (RAN1#124bis)'처럼 이전 회의 합의를 인용한 것은 신규 결정이 아닙니다.
@@ -248,7 +251,7 @@ def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
             stats["markers"] += 1
             stats["quoted"] += quoted
             continue
-        if NEAR_MARKER.match(text):
+        if NEAR_MARKER.match(text) and not nested:
             stats["unrecognized"].append({"agenda": numbers[-1] if numbers else "", "text": " ".join(text.split())})
         # 'Agreement' 바로 다음의 굵지 않은 TDoc 줄('R1-2509494 is endorsed …', 승인 문서 목록)은 결정 본문입니다.
         # 굵은 TDoc 줄은 다음 결정의 근거 문서이므로 결정을 닫습니다.
@@ -275,7 +278,6 @@ def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
             continue
 
         if block:
-            num = _num_pr(b)
             if num:
                 line = "  " * (num[1] or 0) + "- " + text
             else:

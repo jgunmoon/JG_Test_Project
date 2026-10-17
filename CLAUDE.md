@@ -86,5 +86,8 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
 - 회의 간 같은 Agenda는 번호가 아니라 '섹션 제목 + Agenda 제목'으로 이어 붙입니다 (`scripts/agenda.py`).
   번호가 바뀌면 함께 표시하고, 제목이 바뀐 Agenda는 억지로 잇지 않고 '최신 회의에는 없는 Agenda'로 따로 보여줍니다.
 - Delta(직전 회의 대비)는 `scripts/delta.py`가 섹션별로 DB에서 계산합니다. FFS 후속 결정은 키워드 매칭 '후보'로만 표시하고 해소됐다고 단정하지 않습니다.
+- 추출 점검(`scripts/health.py`): 회의를 처리할 때마다 결정이 조용히 누락됐을 가능성을 확인해 DB의 회의 정보(`health`)에 저장합니다.
+  읽지 못한 결정 표시 줄(예: `Agreement: 본문`처럼 같은 줄에 쓴 형식), 본문 없는 결정, 결정 수 급감, 섹션 소실을 봅니다.
+  결과는 Actions 경고, README의 '추출 점검', 대시보드 회의 목록에 나옵니다. '확인 필요'가 나오면 원문과 대조하고 파서를 고칩니다.
 - `reports/` 아래 파일은 생성물입니다. 직접 수정하지 말고 DB나 설정을 고친 뒤 다시 생성합니다.
 - DB 스키마와 필수 필드(출처 문서 번호, FTP 링크)는 `data/SCHEMA.md`를 따릅니다.

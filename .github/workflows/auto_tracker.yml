@@ -1,14 +1,14 @@
-# RAN1 트래커 수동 실행
-# GitHub 저장소 → Actions → "RAN1 tracker" → "Run workflow" 버튼으로 실행합니다.
-# 새 회의 종료본이 있으면 DB와 리포트를 갱신해 실행한 브랜치에 커밋합니다. 없으면 아무것도 바꾸지 않습니다.
+# RAN1 트래커: 매일 자동 실행 + 수동 실행
+# 매일 한국시간 오전 8시 47분경 자동으로 실행합니다 (GitHub 사정에 따라 수십 분 늦어질 수 있음).
+# 바로 확인하려면 GitHub 저장소 → Actions → "RAN1 tracker" → "Run workflow" 버튼으로 실행합니다.
+# 새 회의 종료본(또는 결정이 담긴 비종료본)이 있으면 DB와 리포트를 갱신해 커밋합니다. 없으면 아무것도 바꾸지 않습니다.
 # 실행이 끝나면 reports/ 폴더(HTML 대시보드 포함)를 GitHub Pages로 다시 게시합니다.
-#
-# 매일 자동 실행으로 바꾸려면 아래 on: 에 다음을 추가하면 됩니다 (UTC 기준, 아래는 한국시간 오전 9시).
-#   schedule:
-#     - cron: "0 0 * * *"
 name: RAN1 tracker
 
 on:
+  schedule:
+    # UTC 기준입니다. 23:47 UTC = 한국시간 08:47. 정각(0분)은 GitHub 실행이 몰려 늦어지기 쉬워 피했습니다.
+    - cron: "47 23 * * *"
   workflow_dispatch:
     inputs:
       dry_run:

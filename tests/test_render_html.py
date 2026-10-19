@@ -80,8 +80,9 @@ def test_output_is_deterministic():
 
 def test_meeting_counts_in_agenda_tree_are_buttons_for_that_meeting():
     page = html_part(rh.render_html(CONFIG, DB))
-    # 숫자 셀은 해당 회의 결정만 펼치는 버튼, 0건은 버튼이 아님
+    # 숫자 셀은 해당 회의 결정만 펼치는 버튼, 0건은 비활성 버튼 (구분 필터로 숫자가 바뀌므로 모두 버튼)
     assert '<button type="button" class="cell" data-meet="RAN1#126" aria-pressed="false">2</button>' in page
+    assert '<button type="button" class="cell" data-meet="RAN1#126" aria-pressed="false" disabled>0</button>' in page
     assert 'data-keys="[&quot;rel-20 study of 6gr || beam management&quot;]"' in page   # JSON 배열 (키에 '||' 포함)
     assert page.count('class="agenda-detail"') >= 4          # 모든 행 아래에 펼침 영역
 
@@ -121,3 +122,20 @@ def test_workflow_stamps_the_exact_placeholder():
     from pathlib import Path
     workflow = (Path(__file__).parent.parent / ".github" / "workflows" / "auto_tracker.yml").read_text()
     assert rh.CHECKED_AT.replace('"', '\\"') in workflow
+
+
+def test_type_filters_for_search_and_agenda_tree():
+    page = html_part(rh.render_html(CONFIG, DB))
+    for fid in ("f-type", "a-type"):
+        box = re.search(rf'<fieldset class="typefilter" id="{fid}">(.*?)</fieldset>', page, re.S).group(1)
+        assert [v for v in re.findall(r'value="([^"]+)" checked', box)] == ["Agreement", "Working Assumption", "Conclusion"]
+        assert "data-ffs" in box and "FFS 남은 결정만" in box
+    assert 'class="num row-total">3</td>' in page                       # 표의 합계는 화면에서 다시 계산
+    assert 'data-section="rel-20 study of 6gr"' in page                 # 섹션 건수도 다시 계산
+
+
+def test_ffs_count_is_embedded_for_the_ffs_filter():
+    import json
+    page = rh.render_html(CONFIG, DB)
+    data = json.loads(re.search(r'id="decisions">(.*?)</script>', page, re.S).group(1))
+    assert [e["ffs"] for e in data["entries"] if e["meeting"] == "RAN1#125"] == [0, 1]   # 10.5.0(FFS 없음), 10.5.2.4(FFS 1개) 순

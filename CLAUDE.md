@@ -99,6 +99,10 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
   대시보드의 '마지막 확인'은 Pages 게시 단계가 `__CHECKED_AT__` 자리에 실행 시각을 채웁니다(커밋 없음). 자리 표시 형식을 바꾸면 워크플로도 함께 고칩니다.
 - HTML 대시보드의 '결정 검색'은 전체 결정을 페이지에 넣어 브라우저에서 키워드로 찾습니다 (서버 불필요).
   추천 검색어 버튼은 config의 `search_presets`에 적습니다. 검색 스크립트(`SCRIPT`)는 raw 문자열이므로 JS 문법 그대로 씁니다.
+- 결정 종류는 Agreement · Working Assumption · Conclusion 세 가지입니다(FFS는 결정 안의 하위 줄).
+  검색과 Agenda 목차에 각각 '구분' 체크박스(종류 3개 + 'FFS 남은 결정만')가 있습니다(`_type_filter`, id `f-type`·`a-type`).
+  Agenda 목차는 체크에 맞춰 회의별 숫자·합계·'결정 보기' 건수·섹션 건수를 브라우저에서 다시 세고, 펼친 목록도 함께 바뀝니다.
+  그래서 회의별 숫자 셀은 0건이어도 비활성 버튼으로 둡니다.
 - 회의 간 같은 Agenda는 번호가 아니라 '섹션 제목 + Agenda 제목'으로 이어 붙입니다 (`scripts/agenda.py`).
   번호가 바뀌면 함께 표시하고, 제목이 바뀐 Agenda는 억지로 잇지 않고 '최신 회의에는 없는 Agenda'로 따로 보여줍니다.
 - Delta(직전 회의 대비)는 `scripts/delta.py`가 섹션별로 DB에서 계산합니다. FFS 후속 결정은 키워드 매칭 '후보'로만 표시하고 해소됐다고 단정하지 않습니다.

@@ -130,6 +130,13 @@ button.cell { font: inherit; font-family: var(--font-data); font-variant-numeric
   background: none; border: 0; border-radius: 4px; padding: 1px 6px; margin: -1px -6px; cursor: pointer;
   text-decoration: underline dotted; text-underline-offset: 3px; }
 button.cell:hover { background: var(--bg); }
+button.cell:disabled { color: var(--ink-3); text-decoration: none; cursor: default; background: none; }
+fieldset.typefilter { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; border: 0; padding: 0; margin: 0;
+  font-size: 13px; color: var(--ink-2); }
+fieldset.typefilter legend { float: left; padding: 0; margin-right: 4px; color: var(--ink-2); }
+fieldset.typefilter label { display: inline-flex; gap: 6px; align-items: center; }
+fieldset.typefilter .ffs { padding-left: 12px; border-left: 1px solid var(--rule); }
+#agenda fieldset.typefilter { margin: 4px 0 14px; }
 button.cell[aria-pressed="true"], .toggle[aria-pressed="true"] { background: var(--accent); color: var(--panel); text-decoration: none; }
 button.cell:focus-visible, .toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .cell-text { white-space: pre-line; max-height: 9em; overflow-y: auto; min-width: 24ch; overflow-wrap: anywhere; }
@@ -153,6 +160,20 @@ SCRIPT = r"""
   const opt = (sel, value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; sel.append(o); };
   DATA.sections.forEach(([key, label]) => opt(fSection, key, label));
   [...DATA.meetings].reverse().forEach(m => opt(fMeeting, m, m));
+  // 구분 체크박스(결정 종류 + 'FFS 남은 결정만'). pred()는 지금 체크 상태로 결정을 거르는 함수를 돌려줍니다.
+  const typeFilter = box => ({
+    pred() {
+      const types = [...box.querySelectorAll('input[value]:checked')].map(i => i.value);
+      const ffs = box.querySelector('[data-ffs]').checked;
+      return e => types.includes(e.type) && (!ffs || e.ffs > 0);
+    },
+    active: () => !!box.querySelector('input[value]:not(:checked), [data-ffs]:checked'),
+    none: () => !box.querySelector('input[value]:checked'),
+  });
+  const searchF = typeFilter(fType);
+  const SHORT = { 'Agreement': 'Agreement', 'Working Assumption': 'WA', 'Conclusion': 'Conclusion' };
+  const typeCounts = list => Object.keys(SHORT).map(t => [t, list.filter(e => e.type === t).length])
+    .filter(([, n]) => n).map(([t, n]) => `${SHORT[t]} ${n}`).join(' · ');
   const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = (t, word) => word ? `(?<![A-Za-z0-9])${esc(t)}(?![A-Za-z0-9])` : esc(t);
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
@@ -196,7 +217,7 @@ SCRIPT = r"""
     // 'A B | C' 또는 'A B OR C' → (A 그리고 B) 또는 C. 대문자 OR만 연산자로 봅니다.
     const groups = q.value.trim().split(/\s+OR\s+|\s*\|\s*/).map(g => g.split(/\s+/).filter(Boolean)).filter(g => g.length);
     const terms = groups.flat();
-    const filtered = fSection.value || fMeeting.value || fType.value;
+    const filtered = fSection.value || fMeeting.value || searchF.active();
     out.replaceChildren(); shown = 0;
     if (!terms.length && !filtered) {
       summary.textContent = `검색어를 입력하거나 필터를 고르세요. 전체 ${DATA.entries.length.toLocaleString()}건에서 찾습니다.`;
@@ -205,38 +226,70 @@ SCRIPT = r"""
     const groupRes = groups.map(g => g.map(t => new RegExp(pattern(t, fWord.checked), 'i')));
     const has = (e, r) => r.test(e.text) || r.test(e.agenda_title);
     const re = terms.length ? new RegExp(terms.map(t => pattern(t, fWord.checked)).join('|'), 'gi') : null;
+    const ok = searchF.pred();
     hits = DATA.entries.filter(e =>
-      (!fSection.value || e.section === fSection.value) && (!fMeeting.value || e.meeting === fMeeting.value) &&
-      (!fType.value || e.type === fType.value) &&
+      (!fSection.value || e.section === fSection.value) && (!fMeeting.value || e.meeting === fMeeting.value) && ok(e) &&
       (!groupRes.length || groupRes.some(g => g.every(r => has(e, r))))).reverse();
     const per = {}; hits.forEach(e => { per[e.meeting] = (per[e.meeting] || 0) + 1; });
     summary.replaceChildren(el('span', 'num', `${hits.length.toLocaleString()}건`),
-      hits.length ? ' · 회의별 ' + DATA.meetings.filter(m => per[m]).map(m => `${m.replace('RAN1#', '#')} ${per[m]}`).join(' · ')
-                  : ' · 일치하는 결정이 없습니다. 철자나 필터를 확인하세요.');
+      hits.length ? ` · ${typeCounts(hits)} · 회의별 ` + DATA.meetings.filter(m => per[m]).map(m => `${m.replace('RAN1#', '#')} ${per[m]}`).join(' · ')
+                  : searchF.none() ? ' · 구분을 하나 이상 체크하세요.' : ' · 일치하는 결정이 없습니다. 철자나 필터를 확인하세요.');
     showMore(re);
   }
   [q].forEach(n => n.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 150); }));
   [fSection, fMeeting, fType, fWord].forEach(n => n.addEventListener('change', run));
   // Agenda 목차: '결정 보기'는 그 Agenda의 전체 회의 결정을, 회의별 숫자는 그 회의 결정만(하위 Agenda 포함) 펼칩니다.
   // 같은 버튼을 다시 누르면 접히고, 다른 버튼을 누르면 그 내용으로 바뀝니다.
+  // 위의 구분 체크박스(a-type)에 맞는 결정만 세고 펼치며, 체크를 바꾸면 숫자와 펼친 목록이 함께 바뀝니다.
+  const agendaF = typeFilter($('a-type'));
+  const byKey = {};
+  DATA.entries.forEach(e => (byKey[e.key] ||= []).push(e));
+  const short = m => m.replace('RAN1#', '').replace('bis', 'b');
+  function fillAgenda(box) {
+    const { keys, meeting } = box._args, ok = agendaF.pred();
+    const list = keys.flatMap(k => byKey[k] || []).filter(e => (!meeting || e.meeting === meeting) && ok(e))
+      .sort((a, b) => DATA.meetings.indexOf(b.meeting) - DATA.meetings.indexOf(a.meeting));
+    const counts = typeCounts(list);
+    box.replaceChildren(el('div', 'summary-line', `${meeting || '전체 회의'} · ${list.length}건${counts ? ' (' + counts + ')' : ''}`
+      + (agendaF.active() ? ' · 구분 필터 적용 중' : '')));
+    list.forEach(e => box.append(render(e, null)));
+  }
   function showAgenda(tr, state, keys, meeting) {
     const row = tr.nextElementSibling, box = row.querySelector('.agenda-entries');
     const closing = !row.hidden && box.dataset.state === state;
     tr.querySelectorAll('button[aria-pressed]').forEach(b => b.setAttribute('aria-pressed', 'false'));
     if (closing) { row.hidden = true; box.dataset.state = ''; return; }
-    const list = DATA.entries.filter(e => keys.includes(e.key) && (!meeting || e.meeting === meeting)).reverse();
-    box.replaceChildren(el('div', 'summary-line', `${meeting || '전체 회의'} · ${list.length}건`));
-    list.forEach(e => box.append(render(e, null)));
+    box._args = { keys, meeting };
+    fillAgenda(box);
     box.dataset.state = state; row.hidden = false;
     tr.querySelector(`button[data-state="${CSS.escape(state)}"]`)?.setAttribute('aria-pressed', 'true');
   }
-  document.querySelectorAll('#agenda tr[data-keys]').forEach(tr => {
-    const keys = JSON.parse(tr.dataset.keys);
+  const rows = [...document.querySelectorAll('#agenda tr[data-keys]')].map(tr => ({ tr, keys: JSON.parse(tr.dataset.keys) }));
+  rows.forEach(({ tr, keys }) => {
     tr.querySelectorAll('button.cell').forEach(b => { b.dataset.state = b.dataset.meet;
       b.addEventListener('click', () => showAgenda(tr, b.dataset.meet, keys, b.dataset.meet)); });
     tr.querySelectorAll('[data-agenda]').forEach(b => { b.dataset.state = 'all';
       b.addEventListener('click', () => showAgenda(tr, 'all', [b.dataset.agenda], null)); });
   });
+  function recount() {
+    const ok = agendaF.pred();
+    const perMeeting = list => { const per = {}; list.forEach(e => { if (ok(e)) per[e.meeting] = (per[e.meeting] || 0) + 1; }); return per; };
+    rows.forEach(({ tr, keys }) => {
+      const per = perMeeting(keys.flatMap(k => byKey[k] || []));
+      tr.querySelectorAll('button.cell').forEach(b => { const n = per[b.dataset.meet] || 0; b.textContent = n; b.disabled = !n; });
+      tr.querySelector('.row-total').textContent = Object.values(per).reduce((a, n) => a + n, 0);
+      tr.querySelectorAll('[data-agenda]').forEach(b => {
+        b.textContent = `결정 보기 (${(byKey[b.dataset.agenda] || []).filter(ok).length})`; });
+    });
+    document.querySelectorAll('#agenda [data-section]').forEach(span => {
+      const per = perMeeting(DATA.entries.filter(e => e.section === span.dataset.section));
+      const sum = Object.values(per).reduce((a, n) => a + n, 0);
+      span.textContent = `섹션 전체 ${sum}건 · ` + DATA.meetings.map(m => `${short(m)} ${per[m] || 0}`).join(' · ');
+    });
+    document.querySelectorAll('#agenda .agenda-entries').forEach(box => {
+      if (box._args && !box.closest('tr').hidden) fillAgenda(box); });
+  }
+  $('a-type').addEventListener('change', recount);
   document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => { q.value = b.dataset.preset; run(); q.focus(); }));
   run();
 })();
@@ -371,24 +424,32 @@ def _delta_detail(name, d):
 </details>"""
 
 
+def _type_filter(fid):
+    """결정 종류(Agreement · Working Assumption · Conclusion) 체크박스와 'FFS 남은 결정만' 체크박스."""
+    boxes = "".join(f'<label><input type="checkbox" value="{_e(t)}" checked> {_e(t)}</label>' for t in TYPES)
+    return (f'<fieldset class="typefilter" id="{fid}"><legend>구분</legend>{boxes}'
+            '<label class="ffs"><input type="checkbox" data-ffs> FFS 남은 결정만</label></fieldset>')
+
+
 def _toggle(key, count):
     return (f'<td><button type="button" class="toggle" data-agenda="{_e(key)}" data-count="{count}" '
             f'aria-pressed="false">결정 보기 ({count})</button></td>')
 
 
 def _meet_cells(counts, meetings):
-    """회의별 결정 수. 0이 아니면 그 회의 결정만 펼치는 버튼입니다."""
+    """회의별 결정 수. 누르면 그 회의 결정만 펼치는 버튼이며, 0건이면 비활성입니다 (구분 필터에 따라 숫자가 바뀜)."""
     out = []
     for m in meetings:
         n = counts.get(m, 0)
-        out.append(f'<td class="num"><button type="button" class="cell" data-meet="{_e(m)}" aria-pressed="false">{n}</button></td>'
-                   if n else _num(0))
+        out.append(f'<td class="num"><button type="button" class="cell" data-meet="{_e(m)}" aria-pressed="false"'
+                   f'{"" if n else " disabled"}>{n}</button></td>')
     return "".join(out)
 
 
 def _tree_row(css, keys, label_html, cells, total, toggle, cols):
     # 연결 키에 '||'가 들어 있어 구분자로 잇지 않고 JSON 배열로 넘깁니다.
-    return (f'<tr class="{css}" data-keys="{_e(json.dumps(keys, ensure_ascii=False))}">{label_html}{cells}{_num(total)}{toggle}</tr>'
+    return (f'<tr class="{css}" data-keys="{_e(json.dumps(keys, ensure_ascii=False))}">{label_html}{cells}'
+            f'<td class="num row-total">{total}</td>{toggle}</tr>'
             f'<tr class="agenda-detail" hidden><td colspan="{cols}"><div class="agenda-entries"></div></td></tr>')
 
 
@@ -419,7 +480,7 @@ def _agenda_tree(index, sections, meetings, base):
                 _toggle(r["key"], own) if lin else "<td></td>", cols))
         blocks.append(f"""<details>
   <summary><h3><span class="agenda-num">{_e(sec["number"])}</span>{_e(sec["title"])}</h3>
-    <span class="counts">섹션 전체 {sum(total.values())}건 · {" · ".join(f"{_e(_short(m))} {total.get(m, 0)}" for m in meetings)}</span>
+    <span class="counts" data-section="{_e(sec["key"])}">섹션 전체 {sum(total.values())}건 · {" · ".join(f"{_e(_short(m))} {total.get(m, 0)}" for m in meetings)}</span>
     <span class="small">{_link(f"{base}by_agenda/{slug(sec['title'])}.md", "섹션 리포트")}</span></summary>
   <div class="table-scroll"><table class="tree">
     <thead><tr><th>Agenda ({_e(meetings[-1])} 번호)</th>{heads}<th class="num">합계</th><th></th></tr></thead>
@@ -450,7 +511,9 @@ def _agenda_tree(index, sections, meetings, base):
     회의별 숫자를 누르면 그 회의의 결정만(하위 Agenda 포함), '결정 보기'를 누르면 모든 회의의 결정을 펼칩니다. 다시 누르면 접힙니다.
     회의 간에는 같은 섹션 안의 같은 Agenda 제목끼리 이어 붙이고, 번호가 바뀐 경우 함께 표시합니다.
     {_e(meetings[-1])}에 없는 Agenda(삭제·통합·제목 변경)의 결정은 표에서 빠지고 맨 아래 '최신 회의에는 없는 Agenda'에 따로 모았습니다.
-    그래서 섹션 제목 옆의 '섹션 전체' 건수가 표의 합계보다 클 수 있습니다.</p>
+    그래서 섹션 제목 옆의 '섹션 전체' 건수가 표의 합계보다 클 수 있습니다.
+    아래 구분 체크박스로 원하는 결정 종류만 남기면 표의 숫자와 펼친 결정이 함께 바뀝니다.</p>
+  {_type_filter("a-type")}
   {"".join(blocks)}
 </section>"""
 
@@ -481,12 +544,11 @@ def _search_section(config, db, index, sections, meetings):
         "meetings": meetings,
         "provisional": [m for m in meetings if provisional(db, m)],
         "entries": [{**{k: e.get(k, "") for k in keep}, "key": index["entry_keys"][e["id"]],
-                     "section": agenda.section_key(e)}
+                     "section": agenda.section_key(e), "ffs": len(e.get("ffs") or [])}
                     for e in sorted(db["entries"], key=lambda e: (meeting_sort_key(e["meeting"]), e["id"]))],
     }
     presets = "".join(f'<button type="button" data-preset="{_e(p)}">{_e(p)}</button>'
                       for p in config.get("search_presets", []))
-    types = "".join(f'<option value="{_e(t)}">{_e(t)}</option>' for t in TYPES)
     return f"""<section id="search">
   <h2>결정 검색</h2>
   <div class="search" role="search">
@@ -495,9 +557,9 @@ def _search_section(config, db, index, sections, meetings):
     <div class="filters">
       <label>섹션 <select id="f-section"><option value="">전체</option></select></label>
       <label>회의 <select id="f-meeting"><option value="">전체</option></select></label>
-      <label>구분 <select id="f-type"><option value="">전체</option>{types}</select></label>
       <label><input type="checkbox" id="f-word" checked> 단어 단위로만 찾기</label>
     </div>
+    {_type_filter("f-type")}
     {f'<div class="presets">추천 검색어 {presets}</div>' if presets else ""}
     <div class="summary-line" id="summary" aria-live="polite"></div>
     <div class="results" id="results"></div>

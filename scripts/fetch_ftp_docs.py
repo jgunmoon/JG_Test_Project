@@ -20,6 +20,8 @@ USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Ge
 DOWNLOAD_DIR = Path(__file__).resolve().parent.parent / "downloads"
 # 실제 이름 예: '..._eom1.docx', '... eom.zip', '... - eom3.docx', '... - eom_03.docx', '... eom0.zip'
 FINAL_CHAIR_NOTES = re.compile(r"Chair notes RAN1#\S+?(?:\s+-\s+|[ _])eom_?(\d*)\.(docx|docm|zip)", re.I)
+# 회의 종료본이 아닌 Chair notes: 'Chair notes RAN1#126bis_v00.docx', 'Draft Chair notes RAN1#125_v02.docx'
+DRAFT_CHAIR_NOTES = re.compile(r"(Draft )?Chair notes RAN1#\S+?(?:\s+-\s+|[ _])v_?(\d+)\.(docx|zip)", re.I)
 
 
 def http_get(url):
@@ -58,23 +60,36 @@ def pick_final_chair_notes(names):
     return max(finals)[1] if finals else None
 
 
+def pick_latest_draft_chair_notes(names):
+    """종료본이 아닌 Chair notes 중 가장 최신(v 번호가 가장 큰, 같으면 Draft가 아닌) 파일 이름. 없으면 None."""
+    drafts = []
+    for name in names:
+        m = DRAFT_CHAIR_NOTES.fullmatch(name)
+        if m:
+            drafts.append((int(m.group(2)), not m.group(1), name))
+    return max(drafts)[2] if drafts else None
+
+
 def chair_notes_status(folder, lister=list_dir):
-    """{"final": (파일 이름, FTP URL) 또는 None, "reason": 종료본이 없을 때 그 이유}."""
+    """{"final": (이름, URL) 또는 None, "draft": 종료본이 없을 때 최신 비종료본 (이름, URL) 또는 None,
+    "reason": 종료본이 없을 때 그 이유}."""
     # 3GPP 서버는 없는 폴더에 404가 아니라 403을 돌려줘서 접속 차단과 구분되지 않습니다.
     # 그래서 상위 목록에서 폴더가 있는지 먼저 확인합니다.
     # 폴더 이름은 회의에 따라 'Chair_notes' 또는 'Chair_Notes'입니다.
     if "Inbox" not in lister(folder):
-        return {"final": None, "reason": "회의 폴더에 Inbox가 아직 없음"}
+        return {"final": None, "draft": None, "reason": "회의 폴더에 Inbox가 아직 없음"}
     sub = next((n for n in lister(f"{folder}/Inbox") if n.lower() == "chair_notes"), None)
     if not sub:
-        return {"final": None, "reason": "Inbox에 Chair_notes 폴더가 아직 없음"}
+        return {"final": None, "draft": None, "reason": "Inbox에 Chair_notes 폴더가 아직 없음"}
     names = lister(f"{folder}/Inbox/{sub}")
     name = pick_final_chair_notes(names)
     if not name:
         notes = [n for n in names if "chair notes" in n.lower()]
         found = f"지금 있는 Chair notes: {', '.join(notes)}" if notes else "Chair notes 파일 없음"
-        return {"final": None, "reason": f"회의 종료본(eom) Chair notes가 아직 없음 ({found})"}
-    return {"final": (name, f"{BASE_URL}{folder}/Inbox/{sub}/{quote(name)}"), "reason": None}
+        draft = pick_latest_draft_chair_notes(names)
+        return {"final": None, "draft": (draft, f"{BASE_URL}{folder}/Inbox/{sub}/{quote(draft)}") if draft else None,
+                "reason": f"회의 종료본(eom) Chair notes가 아직 없음 ({found})"}
+    return {"final": (name, f"{BASE_URL}{folder}/Inbox/{sub}/{quote(name)}"), "draft": None, "reason": None}
 
 
 def find_final_chair_notes(folder, lister=list_dir):

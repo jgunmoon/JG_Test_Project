@@ -146,3 +146,18 @@ def test_readme_and_meeting_report_show_extraction_check():
 def test_meeting_without_health_record_is_shown_as_not_checked():
     db = make_db(entry("RAN1#118", 1))
     assert "| RAN1#118 | 점검 기록 없음 |" in gr.render_dashboard(CONFIG, db)
+
+
+def test_provisional_meeting_is_labelled_everywhere(tmp_path):
+    db = make_db(entry("RAN1#117", 1), entry("RAN1#118", 1, text="draft decision"))
+    db["meetings"] = {"RAN1#118": {"provisional": {"doc": "Draft Chair notes RAN1#118_v02.docx", "reason": "r"}}}
+    gr.write_reports(CONFIG, db, tmp_path)
+    readme = (tmp_path / "README.md").read_text()
+    assert "**최신 회의: RAN1#118 (잠정)**" in readme
+    assert "RAN1#118는 잠정 결과입니다" in readme and "`Draft Chair notes RAN1#118_v02.docx`" in readme
+    assert "- [RAN1#118 (잠정)](by_meeting/ran1_118.md)" in readme
+    rep = (tmp_path / "by_meeting" / "ran1_118.md").read_text()
+    assert rep.startswith("# RAN1#118 (잠정) 결과 요약") and "자동으로 교체됩니다" in rep
+    assert "# RAN1#117 결과 요약" in (tmp_path / "by_meeting" / "ran1_117.md").read_text()
+    sec = (tmp_path / "by_agenda" / "rel-20-study-of-6gr.md").read_text()
+    assert "| RAN1#118 (잠정) | 10.5.2 |" in sec and "| RAN1#117 | 10.5.2 |" in sec

@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from html import escape
 
 from scripts import agenda, delta
-from scripts.generate_report import TYPES, all_sections, meeting_slug, meeting_sort_key, slug
+from scripts.generate_report import TYPES, all_sections, meeting_slug, meeting_sort_key, provisional, slug
 
 TITLE = "RAN1 Decision Tracker"
 TYPE_LABEL = {"Agreement": "Agreement", "Working Assumption": "WA", "Conclusion": "Conclusion"}
@@ -84,6 +84,7 @@ details[open] > summary { border-bottom: 1px solid var(--rule); }
 .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
 .chip.candidate { color: var(--candidate); background: var(--candidate-bg); }
 .chip.confirmed { color: var(--confirmed); background: var(--confirmed-bg); }
+.notice { border-left: 3px solid var(--candidate); background: var(--candidate-bg); padding: 10px 14px; border-radius: 6px; margin: 16px 0 0; }
 .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
 .quote { margin: 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; font-size: 13px; overflow-wrap: anywhere; min-width: 0; display: grid; gap: 6px; }
 .quote .text { white-space: pre-line; max-height: 14em; overflow-y: auto; }
@@ -167,7 +168,9 @@ SCRIPT = r"""
   function render(e, re) {
     const box = el('article', 'result');
     const head = el('div', 'result-head');
-    head.append(el('span', 'mono', e.meeting), el('span', 'mono', e.agenda_item),
+    head.append(el('span', 'mono', e.meeting));
+    if (DATA.provisional.includes(e.meeting)) head.append(el('span', 'chip candidate', '잠정'));
+    head.append(el('span', 'mono', e.agenda_item),
       el('span', 'muted', e.agenda_title), el('span', 'type', e.type));
     const text = el('div', 'cell-text small'); highlight(text, e.text, re);
     const src = el('div', 'src'); const s = e.source;
@@ -473,6 +476,7 @@ def _search_section(config, db, index, sections, meetings):
     data = {
         "sections": [[s["key"], f'{s["number"]} {s["title"]}'] for s in sections],
         "meetings": meetings,
+        "provisional": [m for m in meetings if provisional(db, m)],
         "entries": [{**{k: e.get(k, "") for k in keep}, "key": index["entry_keys"][e["id"]],
                      "section": agenda.section_key(e)}
                     for e in sorted(db["entries"], key=lambda e: (meeting_sort_key(e["meeting"]), e["id"]))],
@@ -513,15 +517,21 @@ def render_body(config, db):
     for e in db["entries"]:
         by_section[agenda.section_key(e)].append(e)
     latest = meetings[-1]
+    chip = '<span class="chip candidate">잠정</span>'
+    notices = "".join(
+        f'<p class="notice small">{chip} <b>{_e(m)}</b>는 회의 종료본이 아닌 <span class="mono">{_e(provisional(db, m)["doc"])}</span> '
+        "기준 잠정 결과입니다. 결정이 바뀌거나 빠질 수 있으며, 종료본이 FTP에 올라오면 다음 실행에서 자동으로 교체됩니다.</p>"
+        for m in meetings if provisional(db, m))
     parts = [f"""<main class="wrap">
 <header>
   <span class="eyebrow">3GPP TSG RAN WG1 · Chair notes 기준 · 공식 Agenda별</span>
   <h1>{TITLE}</h1>
   <dl class="facts">
-    <div><dt>최신 회의</dt><dd>{_e(latest)}</dd></div>
+    <div><dt>최신 회의</dt><dd>{_e(latest)}{" " + chip if provisional(db, latest) else ""}</dd></div>
     <div><dt>추적 범위</dt><dd>{_e(meetings[0])} – {_e(_short(latest))} ({len(meetings)}회)</dd></div>
     <div><dt>누적 결정</dt><dd>{len(db["entries"]):,}</dd></div>
   </dl>
+  {notices}
 </header>"""]
     parts.append(_search_section(config, db, index, every, meetings))
 
@@ -560,7 +570,8 @@ def render_body(config, db):
         n = sum(1 for e in db["entries"] if e["meeting"] == m)
         meta = db.get("meetings", {}).get(m, {})
         cn = meta.get("chair_notes_url")
-        body.append(f'<tr><td class="mono">{_link(f"{base}by_meeting/{meeting_slug(m)}.md", m)}</td>{_num(n)}'
+        mark = f" {chip}" if provisional(db, m) else ""
+        body.append(f'<tr><td class="mono">{_link(f"{base}by_meeting/{meeting_slug(m)}.md", m)}{mark}</td>{_num(n)}'
                     f'<td>{_health_cell(meta.get("health"))}</td>'
                     f'<td>{_link(cn, "Chair notes") if cn else ""}</td></tr>')
     parts.append(f"""<section>
@@ -572,7 +583,8 @@ def render_body(config, db):
     <tbody>{"".join(body)}</tbody>
   </table></div>
 </section>
-<footer>모든 수치는 3GPP FTP의 회의 종료본 Chair notes에서 추출한 Agreement · Working Assumption · Conclusion입니다.
+<footer>모든 수치는 3GPP FTP의 회의 종료본 Chair notes에서 추출한 Agreement · Working Assumption · Conclusion입니다
+  ('잠정' 표시 회의는 종료본 전의 최신 Chair notes 기준).
   분류는 공식 Agenda를 그대로 따릅니다. 이 페이지는 scripts/render_html.py가 자동으로 생성합니다.</footer>
 </main>
 <div id="tip" hidden></div>""")

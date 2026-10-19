@@ -101,12 +101,14 @@ def test_find_final_returns_quoted_ftp_url():
     assert url == BASE + "TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx"
 
 
-def fake_finder(table):
+def fake_finder(table, drafts=None):
     def status(folder):
         name = table.get(folder)
         if not name:
-            return {"final": None, "reason": "회의 종료본(eom) Chair notes가 아직 없음"}
-        return {"final": (name, f"{BASE}{folder}/Inbox/Chair_notes/{name}"), "reason": None}
+            draft = (drafts or {}).get(folder)
+            return {"final": None, "draft": (draft, f"{BASE}{folder}/Inbox/Chair_notes/{draft}") if draft else None,
+                    "reason": "회의 종료본(eom) Chair notes가 아직 없음"}
+        return {"final": (name, f"{BASE}{folder}/Inbox/Chair_notes/{name}"), "draft": None, "reason": None}
     return status
 
 
@@ -143,12 +145,66 @@ def test_meeting_is_reprocessed_when_parser_version_changes():
     assert cs.pending_meetings(same, ["TSGR1_125"], finder, since="RAN1#125") == []
 
 
+def test_latest_draft_is_picked_by_version_then_non_draft():
+    names = ["Chair notes RAN1#126bis_v00.docx", "Draft Chair notes RAN1#126bis_v00.docx",
+             "Draft Chair notes RAN1#126bis_v01.docx", "RAN1#126b online and offline schedules - v03.docx",
+             "Chair notes RAN1#126_v00.docm"]
+    assert ff.pick_latest_draft_chair_notes(names) == "Draft Chair notes RAN1#126bis_v01.docx"
+    assert ff.pick_latest_draft_chair_notes(names[:2]) == "Chair notes RAN1#126bis_v00.docx"
+    assert ff.pick_latest_draft_chair_notes(["Chair notes RAN1#126_eom1.docx"]) is None
+
+
+def test_meeting_without_final_is_processed_provisionally_from_latest_draft():
+    finder = fake_finder({}, drafts={"TSGR1_126b": "Draft Chair notes RAN1#126bis_v01.docx"})
+    pending = cs.pending_meetings({"meetings": {}}, ["TSGR1_126b", "TSGR1_127"], finder, since="RAN1#126bis")
+    assert [(p["meeting"], p["name"], p["provisional"]) for p in pending] == [
+        ("RAN1#126bis", "Draft Chair notes RAN1#126bis_v01.docx", True)]
+
+
+def test_same_draft_is_not_reprocessed_and_final_replaces_it():
+    draft_url = f"{BASE}TSGR1_126b/Inbox/Chair_notes/Draft Chair notes RAN1#126bis_v01.docx"
+    db = {"meetings": {"RAN1#126bis": {"chair_notes_url": draft_url, "parser_version": cs.PARSER_VERSION,
+                                       "provisional": {"doc": "Draft Chair notes RAN1#126bis_v01.docx"}}}}
+    skipped = []
+    same = fake_finder({}, drafts={"TSGR1_126b": "Draft Chair notes RAN1#126bis_v01.docx"})
+    assert cs.pending_meetings(db, ["TSGR1_126b"], same, since="RAN1#126bis", skipped=skipped) == []
+    assert skipped[0]["status"] == "반영됨" and skipped[0]["reason"].startswith("잠정 반영 중")
+    final = fake_finder({"TSGR1_126b": "Chair notes RAN1#126bis_eom.docx"})
+    [p] = cs.pending_meetings(db, ["TSGR1_126b"], final, since="RAN1#126bis")
+    assert p["provisional"] is False and p["name"] == "Chair notes RAN1#126bis_eom.docx"
+
+
+def test_empty_draft_is_not_merged(monkeypatch, tmp_path):
+    monkeypatch.setattr(cs.ff, "download_chair_notes", lambda *a: tmp_path / "x.docx")
+    monkeypatch.setattr(cs.ff, "fetch_agenda_csv", lambda folder: None)
+    monkeypatch.setattr(cs, "parse_chair_notes", lambda *a, **k: ([], []))
+    db = {"meetings": {}, "entries": []}
+    p = {"meeting": "RAN1#126bis", "folder": "TSGR1_126b", "name": "v00.docx", "url": "u",
+         "provisional": True, "reason": "r"}
+    assert cs.process(db, p) is None and db == {"meetings": {}, "entries": []}
+
+
+def test_provisional_meeting_is_marked_in_meta(monkeypatch, tmp_path):
+    entry = {"id": "RAN1#126bis:1.1:001", "meeting": "RAN1#126bis", "agenda_item": "1.1", "agenda_title": "A",
+             "agenda_path": [{"number": "1", "title": "S"}, {"number": "1.1", "title": "A"}],
+             "type": "Agreement", "text": "t", "ffs": [], "source": {"doc": "d", "kind": "chairman_note", "url": "u"}}
+    monkeypatch.setattr(cs.ff, "download_chair_notes", lambda *a: tmp_path / "x.docx")
+    monkeypatch.setattr(cs.ff, "fetch_agenda_csv", lambda folder: None)
+    monkeypatch.setattr(cs, "parse_chair_notes", lambda *a, **k: ([entry], []))
+    db = {"meetings": {}, "entries": []}
+    p = {"meeting": "RAN1#126bis", "folder": "TSGR1_126b", "name": "Draft Chair notes RAN1#126bis_v03.docx",
+         "url": "u", "provisional": True, "reason": "회의 종료본(eom) Chair notes가 아직 없음"}
+    meta = cs.process(db, p)
+    assert meta["provisional"]["doc"] == "Draft Chair notes RAN1#126bis_v03.docx"
+    assert db["meetings"]["RAN1#126bis"]["provisional"] and len(db["entries"]) == 1
+
+
 def test_finder_is_not_called_for_meetings_before_start():
     calls = []
 
     def finder(folder):
         calls.append(folder)
-        return {"final": None, "reason": "x"}
+        return {"final": None, "draft": None, "reason": "x"}
 
     cs.pending_meetings({"meetings": {}}, ["TSGR1_100", "TSGR1_126"], finder, since="RAN1#126")
     assert calls == ["TSGR1_126"]

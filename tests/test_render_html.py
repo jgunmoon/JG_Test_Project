@@ -95,3 +95,14 @@ def test_meetings_table_shows_extraction_check():
     assert '<span class="chip candidate">확인 필요 1건</span>' in page
     assert "읽지 못한 줄 &lt;1&gt;개" in page and "9.1 · Agreement: A" in page
     assert "점검 기록 없음" in page            # RAN1#125에는 점검 기록이 없음
+
+
+def test_provisional_meeting_has_notice_and_chips():
+    db = {**DB, "meetings": {**DB["meetings"], "RAN1#126": {
+        **DB["meetings"]["RAN1#126"], "provisional": {"doc": "Draft Chair notes RAN1#126_v01.docx", "reason": "r"}}}}
+    page = rh.render_html(CONFIG, db)
+    html = html_part(page)
+    assert 'class="notice small"' in html and "Draft Chair notes RAN1#126_v01.docx" in html
+    assert html.count('<span class="chip candidate">잠정</span>') >= 3   # 안내, 최신 회의, 회의 목록
+    assert '"provisional":["RAN1#126"]' in page
+    assert 'class="notice small"' not in html_part(rh.render_html(CONFIG, DB))

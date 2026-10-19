@@ -28,8 +28,10 @@ DB_PATH = ROOT / "data" / "agreements_db.json"
 def pending_meetings(db, folders, status, since, skipped=None):
     """처리가 필요한 회의 목록 (오래된 순).
 
+    회의 종료본이 없으면 최신 비종료본(v00, Draft v01 등)을 '잠정'(provisional)으로 처리 대상에 넣습니다.
+    잠정 결과는 종료본이 올라오면 다음 실행에서 자동으로 교체됩니다.
     skipped에 list를 넘기면 건너뛴 회의를 채웁니다: 상태 '반영됨'(같은 문서·같은 파서로 처리함)
-    또는 '대기'(회의 종료본이 아직 FTP에 없음)와 그 이유.
+    또는 '대기'(Chair notes가 아직 FTP에 없음)와 그 이유.
     """
     skipped = [] if skipped is None else skipped
     start = meeting_sort_key(since)
@@ -45,16 +47,44 @@ def pending_meetings(db, folders, status, since, skipped=None):
     pending = []
     for meeting, folder in sorted(candidates, key=lambda c: meeting_sort_key(c[0])):
         found = status(folder)
-        if not found["final"]:
+        doc = found["final"] or found.get("draft")
+        if not doc:
             skipped.append({"meeting": meeting, "status": "대기", "reason": found["reason"]})
             continue
-        name, url = found["final"]
+        name, url = doc
+        provisional = not found["final"]
         done = db["meetings"].get(meeting, {})
         if done.get("chair_notes_url") == url and done.get("parser_version") == PARSER_VERSION:
-            skipped.append({"meeting": meeting, "status": "반영됨", "reason": f"같은 문서를 이미 반영함 ({name})"})
+            note = f"잠정 반영 중, {found['reason']}" if provisional else "같은 문서를 이미 반영함"
+            skipped.append({"meeting": meeting, "status": "반영됨", "reason": f"{note} ({name})"})
             continue  # 같은 문서를 같은 파서로 이미 처리함
-        pending.append({"meeting": meeting, "folder": folder, "name": name, "url": url})
+        pending.append({"meeting": meeting, "folder": folder, "name": name, "url": url,
+                        "provisional": provisional, "reason": found["reason"]})
     return pending
+
+
+def process(db, p):
+    """한 회의를 내려받아 파싱하고 DB에 반영합니다. 결정이 없는 잠정본(회의 전 빈 틀)은 반영하지 않고 None."""
+    path = ff.download_chair_notes(p["folder"], p["name"], p["url"])
+    agenda_csv = ff.fetch_agenda_csv(p["folder"])
+    agenda = parse_agenda_csv(agenda_csv) if agenda_csv else None
+    stats = {}
+    entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda, stats=stats)
+    if p["provisional"] and not entries:
+        return None
+    meta = {
+        "ftp_dir": p["folder"],
+        "chair_notes_url": p["url"],
+        "agenda_source": "agenda.csv" if agenda else "chair_notes_numbering",
+        "parser_version": PARSER_VERSION,
+    }
+    if p["provisional"]:
+        meta["provisional"] = {"doc": p["name"], "reason": p["reason"]}
+    merge_meeting(db, p["meeting"], entries, meta)
+    issues = health.check(p["meeting"], db, stats, warnings, agenda)
+    meta["health"] = {"summary": health.summary(issues), "issues": issues,
+                      "stats": {k: v for k, v in stats.items() if k != "unrecognized"}}
+    return meta
 
 
 def report_issues(meeting, issues):
@@ -83,36 +113,29 @@ def main():
     pending = pending_meetings(db, ff.list_meeting_folders(), ff.chair_notes_status, since, skipped)
     # 출력은 Actions 실행 요약(마크다운)에도 그대로 들어가므로 목록 형식으로 씁니다.
     print(f"{since} 이후 회의 확인 결과:\n")
+    changed = False
     for p in pending:
         status = "갱신" if p["meeting"] in db["meetings"] else "신규"
-        print(f"- [{status}] {p['meeting']}: {p['name']}")
+        label = f"{status} · 잠정" if p["provisional"] else status
+        if args.dry_run:
+            note = " (종료본 아님: 결정이 있으면 잠정으로 반영)" if p["provisional"] else ""
+            print(f"- [{label}] {p['meeting']}: {p['name']}{note}")
+            continue
+        meta = process(db, p)
+        if meta is None:
+            print(f"- [대기] {p['meeting']}: {p['reason']} · 최신 비종료본({p['name']})에는 결정이 아직 없음 (회의 전 빈 틀)")
+            continue
+        changed = True
+        n = sum(1 for e in db["entries"] if e["meeting"] == p["meeting"])
+        note = " · 회의 종료본이 아니므로 잠정 결과로 표시" if p["provisional"] else ""
+        print(f"- [{label}] {p['meeting']}: {p['name']} → {n}건 추출 · 추출 점검: {meta['health']['summary']}{note}")
+        report_issues(p["meeting"], meta["health"]["issues"])
     for s in skipped:
         print(f"- [{s['status']}] {s['meeting']}: {s['reason']}")
     print()
-    if not pending:
-        print("새로 처리할 회의가 없습니다.")
+    if not changed:
+        print("새로 반영할 회의가 없습니다.")
         return
-    if args.dry_run:
-        return
-
-    for p in pending:
-        path = ff.download_chair_notes(p["folder"], p["name"], p["url"])
-        agenda_csv = ff.fetch_agenda_csv(p["folder"])
-        agenda = parse_agenda_csv(agenda_csv) if agenda_csv else None
-        stats = {}
-        entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda, stats=stats)
-        meta = {
-            "ftp_dir": p["folder"],
-            "chair_notes_url": p["url"],
-            "agenda_source": "agenda.csv" if agenda else "chair_notes_numbering",
-            "parser_version": PARSER_VERSION,
-        }
-        merge_meeting(db, p["meeting"], entries, meta)
-        issues = health.check(p["meeting"], db, stats, warnings, agenda)
-        meta["health"] = {"summary": health.summary(issues), "issues": issues,
-                          "stats": {k: v for k, v in stats.items() if k != "unrecognized"}}
-        print(f"  {p['meeting']}: {len(entries)}건 추출 · 추출 점검: {meta['health']['summary']}")
-        report_issues(p["meeting"], issues)
 
     write_reports(config, db, ROOT / "reports")
     DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -13,6 +13,7 @@ DB는 `scripts/parse_agreements.py`가 Chair notes에서 만들며, 같은 문�
       "chair_notes_url": "https://www.3gpp.org/ftp/.../Chair%20notes%20RAN1%23126_eom1.docx",
       "agenda_source": "agenda.csv",
       "parser_version": 6,
+      "provisional": {"doc": "Draft Chair notes RAN1#126bis_v03.docx", "reason": "회의 종료본(eom) Chair notes가 아직 없음 (…)"},
       "health": {"summary": "확인 필요 1건", "issues": [{"level": "warning", "code": "unrecognized_markers", "message": "…", "samples": ["…"]}],
                  "stats": {"markers": 356, "extracted": 356, "quoted": 0, "empty": 0, "outside": 0}}
     }
@@ -51,6 +52,7 @@ DB는 `scripts/parse_agreements.py`가 Chair notes에서 만들며, 같은 문�
 | `id` | `회의:Agenda:순번`. 같은 문서를 다시 파싱하면 같은 값이 나옵니다. |
 | `type` | `Agreement`, `Working Assumption`, `Conclusion` 중 하나. 벤더 제안(Proposal)이나 Observation은 저장하지 않습니다. |
 | `agenda_path` | **필수.** 최상위 Agenda부터 결정이 기록된 Agenda까지의 번호와 제목. 결정은 모든 Agenda에서 기록합니다. |
+| `meetings.*.provisional` | 선택. 회의 종료본이 아닌 최신 Chair notes로 처리한 '잠정' 회의에만 있습니다. 종료본으로 다시 처리하면 사라집니다. |
 | `agenda_item` | 결정이 기록된 Agenda 번호. 공식 agenda.csv가 있으면(RAN1#124~) 그 번호, 없으면 Chair notes의 Word 자동 번호로 계산한 값입니다. |
 | `text` | 원문 그대로 저장합니다. 요약은 리포트 단계에서만 합니다. |
 | `ffs` | 결정 안에 남아 있는 FFS 줄 목록. 별도 결정이 아니라 미결 항목입니다. |

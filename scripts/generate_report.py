@@ -100,6 +100,21 @@ def _short(meeting):
     return meeting.replace("RAN1", "")
 
 
+def provisional(db, meeting):
+    """회의 종료본이 아닌 Chair notes로 처리한 회의면 {"doc", "reason"}, 아니면 None."""
+    return db.get("meetings", {}).get(meeting, {}).get("provisional")
+
+
+def meeting_label(db, meeting):
+    return f"{meeting} (잠정)" if provisional(db, meeting) else meeting
+
+
+def provisional_note(db, meeting):
+    p = provisional(db, meeting)
+    return (f"> ⚠️ **{meeting}는 잠정 결과입니다.** 회의 종료본이 아닌 `{p['doc']}` 기준이라 결정이 바뀌거나 빠질 수 있습니다. "
+            f"종료본이 FTP에 올라오면 다음 실행에서 자동으로 교체됩니다.") if p else None
+
+
 def _counts_line(counts, meetings):
     return " · ".join(f"{_short(m)} {counts.get(m, 0)}" for m in meetings)
 
@@ -114,6 +129,7 @@ def render_section_report(section, index, db):
              "같은 섹션 안의 같은 Agenda 제목으로 합니다.", ""]
     if section.get("retired_after"):
         lines += [f"> 이 섹션은 {section['retired_after']} 이후 Agenda에 없습니다.", ""]
+    lines += [n for m in meetings for n in (provisional_note(db, m), "") if provisional_note(db, m)]
 
     per = Counter(e["meeting"] for e in mine)
     lines += ["## 회의별 결정 수", "", "```mermaid", "timeline", f"    title {section['title']}"]
@@ -137,7 +153,7 @@ def render_section_report(section, index, db):
             if hist:
                 lines.append(f"\n번호 변경: {hist}")
             lines += ["", "| 회의 | 번호 | 구분 | 내용 | 출처 |", "|---|---|---|---|---|"]
-            lines += [f"| {e['meeting']} | {e['agenda_item']} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
+            lines += [f"| {meeting_label(db, e['meeting'])} | {e['agenda_item']} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
                       for e in _sorted_entries(by_key[r["key"]])]
         lines.append("")
 
@@ -149,7 +165,7 @@ def render_section_report(section, index, db):
             lines += [f"### {lin['last_number']} {lin['title']} (마지막: {lin['last_meeting']})", "",
                       f"회의별 결정 수: {_counts_line(lin['counts'], meetings)}", "",
                       "| 회의 | 번호 | 구분 | 내용 | 출처 |", "|---|---|---|---|---|"]
-            lines += [f"| {e['meeting']} | {e['agenda_item']} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
+            lines += [f"| {meeting_label(db, e['meeting'])} | {e['agenda_item']} | {e['type']} | {_cell(e['text'])} | {_source_link(e['source'])} |"
                       for e in _sorted_entries(by_key[lin["key"]])]
             lines.append("")
     return "\n".join(lines)
@@ -182,7 +198,9 @@ def _render_delta(d):
 
 
 def render_meeting_report(meeting, config, db):
-    lines = [f"# {meeting} 결과 요약", "", GENERATED_NOTE, ""]
+    lines = [f"# {meeting_label(db, meeting)} 결과 요약", "", GENERATED_NOTE, ""]
+    if provisional_note(db, meeting):
+        lines += [provisional_note(db, meeting), ""]
     h = db.get("meetings", {}).get(meeting, {}).get("health")
     if h:
         lines.append(f"> **추출 점검: {h['summary']}**")
@@ -218,9 +236,10 @@ def render_dashboard(config, db):
         return "\n".join(lines + ["아직 처리된 회의가 없습니다.", ""])
     index = agenda.build_index(db)
     latest = meetings[-1]
-    lines += [f"**최신 회의: {latest}** ([전체 결과](by_meeting/{meeting_slug(latest)}.md)) · "
-              f"추적 {meetings[0]}–{_short(latest)} · 누적 결정 {len(db['entries']):,}건", "",
-              "공식 Agenda의 최상위 항목(섹션)별 현황입니다. 미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.", "",
+    lines += [f"**최신 회의: {meeting_label(db, latest)}** ([전체 결과](by_meeting/{meeting_slug(latest)}.md)) · "
+              f"추적 {meetings[0]}–{_short(latest)} · 누적 결정 {len(db['entries']):,}건", ""]
+    lines += [n for m in meetings for n in (provisional_note(db, m), "") if provisional_note(db, m)]
+    lines += ["공식 Agenda의 최상위 항목(섹션)별 현황입니다. 미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.", "",
               "| 섹션 (최신 번호) | 최신 Agreement | 최신 WA | 최신 Conclusion | 미결 FFS | 누적 결정 | 상세 |",
               "|---|---|---|---|---|---|---|"]
     for sec in all_sections(index):
@@ -232,7 +251,7 @@ def render_dashboard(config, db):
                      f"| {sum(len(e.get('ffs', [])) for e in now)} | {len(mine)} | [보기](by_agenda/{slug(sec['title'])}.md) |")
     if len(meetings) > 1:
         prev = meetings[-2]
-        lines += ["", f"## 직전 회의 대비 ({prev} → {latest})", "",
+        lines += ["", f"## 직전 회의 대비 ({prev} → {meeting_label(db, latest)})", "",
                   "FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 섹션 리포트에서 원문과 함께 확인하세요.", "",
                   "| 섹션 | 신규 결정 | WA 확정 | 직전 FFS | FFS 후속 결정 후보 | Agenda 신설 / 제외 |",
                   "|---|---|---|---|---|---|"]
@@ -246,13 +265,13 @@ def render_dashboard(config, db):
     for m in reversed(meetings):
         h = db.get("meetings", {}).get(m, {}).get("health")
         if not h:
-            lines.append(f"| {m} | 점검 기록 없음 | |")
+            lines.append(f"| {meeting_label(db, m)} | 점검 기록 없음 | |")
             continue
         top = next((i for i in h["issues"] if i["level"] == "warning"), h["issues"][0] if h["issues"] else None)
-        lines.append(f"| {m} | {h['summary']} | {_cell(top['message']) if top else ''} |")
+        lines.append(f"| {meeting_label(db, m)} | {h['summary']} | {_cell(top['message']) if top else ''} |")
     lines += ["", "보기 좋은 화면, Agenda 목차, 전체 결정 키워드 검색은 같은 폴더의 `index.html`(HTML 대시보드)을 브라우저로 여세요.",
               "", "## 회의별 리포트", ""]
-    lines += [f"- [{m}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]
+    lines += [f"- [{meeting_label(db, m)}](by_meeting/{meeting_slug(m)}.md)" for m in reversed(meetings)]
     return "\n".join(lines + [""])
 
 

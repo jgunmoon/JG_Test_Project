@@ -87,6 +87,11 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
   설명 붙은 표시(`Conclusion for … (after offline):`), 문단 안 줄바꿈도 읽습니다. 괄호/설명에 `RAN1#…`이 있으면 이전 회의 인용으로 제외합니다.
   표시 바로 다음의 굵지 않은 TDoc 줄(`R1-xxxx is endorsed …`)은 결정 본문으로 봅니다.
 - 회의 종료본 Chair notes는 `TSGR1_<번호>/Inbox/Chair_notes/` 의 `Chair notes RAN1#<번호>_eom*.docx` 입니다.
+- 진행 중이거나 막 끝난 회의의 Chair notes는 `https://www.3gpp.org/ftp/Meetings_3GPP_SYNC/RAN1/Inbox/Chair_notes/`에 가장 먼저 올라옵니다
+  (회의 중간본 v01~v15와 eom 포함). 이 위치에는 현재 회의 하나만 있어 파일 이름의 회의 번호로 구분합니다.
+  회의 폴더에 종료본이 없으면 이 위치도 봅니다. 종료본은 eom 번호가 큰 것, 같으면 회의 폴더(영구 위치) 것을 씁니다.
+  SYNC 링크는 다음 회의가 시작되면 사라지므로, 회의 폴더에 종료본이 올라오면 URL이 바뀌어 다음 실행에서 자동으로 다시 처리됩니다.
+  SYNC에서 받은 문서의 근거 TDoc 링크는 회의 폴더(`TSGR1_<번호>/Docs/`) 기준으로 만듭니다(`ftp_dir_url`).
 - 내려받은 원본 문서는 `downloads/`(gitignore)나 임시 폴더에 두고 커밋하지 않습니다.
 
 - `reports/index.html`은 팀 공용 HTML 대시보드입니다 (`scripts/render_html.py`). 상세 리포트 링크는 config의 `report_base_url` 기준입니다.

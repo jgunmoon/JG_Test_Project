@@ -326,3 +326,14 @@ def test_stats_count_quoted_old_agreements(sample):
     stats = {}
     pa.parse_chair_notes(sample, "RAN1#999", URL, stats=stats)
     assert stats["quoted"] == 1 and stats["unrecognized"] == []
+
+
+def test_tdoc_links_use_the_meeting_folder_for_sync_copies(sample):
+    sync_url = "https://www.3gpp.org/ftp/Meetings_3GPP_SYNC/RAN1/Inbox/Chair_notes/cn.docx"
+    entries, _ = pa.parse_chair_notes(sample, "RAN1#999", sync_url)
+    assert all("tdoc_url" not in e["source"] for e in entries)   # 회의 폴더를 모르면 링크를 만들지 않음
+    entries, _ = pa.parse_chair_notes(sample, "RAN1#999", sync_url,
+                                      ftp_dir_url="https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_999/")
+    e = next(e for e in entries if e["source"].get("tdoc") == "R1-2600002")
+    assert e["source"]["url"] == sync_url
+    assert e["source"]["tdoc_url"] == "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/TSGR1_999/Docs/R1-2600002.zip"

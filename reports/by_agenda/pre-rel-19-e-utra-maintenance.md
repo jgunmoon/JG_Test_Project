@@ -4,6 +4,8 @@
 
 공식 Agenda 기준으로 이 섹션의 결정을 모았습니다. 번호는 최신 회의 기준이며, 회의 간 연결은 같은 섹션 안의 같은 Agenda 제목으로 합니다.
 
+> 이 섹션은 RAN1#126 이후 Agenda에 없습니다.
+
 ## 회의별 결정 수
 
 ```mermaid
@@ -15,15 +17,13 @@ timeline
     RAN1#35;126 : 결정 1
 ```
 
-## 직전 회의 대비 (RAN1#125 → RAN1#126)
+## 최신 회의에는 없는 Agenda
 
-- 신규 결정 1건 (Agreement 1, Working Assumption 0, Conclusion 0)
-- Agenda 신설: Pre-Rel-19 E-UTRA Maintenance
-- Agenda 제외: 없음
+삭제됐거나 제목이 바뀐 Agenda입니다. 제목이 바뀐 경우에도 자동으로 잇지 않으니 위 목록과 비교해 보세요.
 
-## 6 Pre-Rel-19 E-UTRA Maintenance
+### 6 Pre-Rel-19 E-UTRA Maintenance (마지막: RAN1#126)
 
-회의별 결정 수 (하위 Agenda 포함): #122 0 · #122bis 0 · #123 1 · #124 1 · #124bis 1 · #125 0 · #126 1
+회의별 결정 수: #122 0 · #122bis 0 · #123 1 · #124 1 · #124bis 1 · #125 0 · #126 1 · #126bis 0
 
 | 회의 | 번호 | 구분 | 내용 | 출처 |
 |---|---|---|---|---|

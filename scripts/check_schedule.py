@@ -60,7 +60,8 @@ def pending_meetings(db, folders, status, since, skipped=None):
             skipped.append({"meeting": meeting, "status": "반영됨", "reason": f"{note} ({name})"})
             continue  # 같은 문서를 같은 파서로 이미 처리함
         pending.append({"meeting": meeting, "folder": folder, "name": name, "url": url,
-                        "provisional": provisional, "reason": found["reason"]})
+                        "provisional": provisional, "reason": found["reason"],
+                        "location": found.get("location") or "회의 폴더"})
     return pending
 
 
@@ -70,7 +71,8 @@ def process(db, p):
     agenda_csv = ff.fetch_agenda_csv(p["folder"])
     agenda = parse_agenda_csv(agenda_csv) if agenda_csv else None
     stats = {}
-    entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda, stats=stats)
+    entries, warnings = parse_chair_notes(path, p["meeting"], p["url"], agenda=agenda, stats=stats,
+                                          ftp_dir_url=f"{ff.BASE_URL}{p['folder']}/")
     if p["provisional"] and not entries:
         return None
     meta = {
@@ -79,6 +81,10 @@ def process(db, p):
         "agenda_source": "agenda.csv" if agenda else "chair_notes_numbering",
         "parser_version": PARSER_VERSION,
     }
+    if p.get("location") == "3GPP_SYNC":
+        # 3GPP_SYNC는 현재 회의만 두는 곳이라 다음 회의가 시작되면 이 링크는 사라집니다.
+        # 회의 폴더에 같은 종료본이 올라오면 URL이 달라지므로 다음 실행에서 그 링크로 자동 교체됩니다.
+        meta["chair_notes_location"] = "3GPP_SYNC"
     if p["provisional"]:
         meta["provisional"] = {"doc": p["name"], "reason": p["reason"]}
     merge_meeting(db, p["meeting"], entries, meta)
@@ -119,19 +125,20 @@ def main():
     for p in pending:
         status = "갱신" if p["meeting"] in db["meetings"] else "신규"
         label = f"{status} · 잠정" if p["provisional"] else status
+        where = " (Meetings_3GPP_SYNC 위치)" if p.get("location") == "3GPP_SYNC" else ""
         if args.dry_run:
             note = " (종료본 아님: 결정이 있으면 잠정으로 반영)" if p["provisional"] else ""
-            rows.append((p["meeting"], f"- [{label}] {p['meeting']}: {p['name']}{note}", []))
+            rows.append((p["meeting"], f"- [{label}] {p['meeting']}: {p['name']}{where}{note}", []))
             continue
         meta = process(db, p)
         if meta is None:
-            rows.append((p["meeting"], f"- [대기] {p['meeting']}: {p['reason']} · 최신 비종료본({p['name']})에는 "
+            rows.append((p["meeting"], f"- [대기] {p['meeting']}: {p['reason']} · 최신 비종료본({p['name']}{where})에는 "
                                        "결정이 아직 없음 (회의 전 빈 틀)", []))
             continue
         changed = True
         n = sum(1 for e in db["entries"] if e["meeting"] == p["meeting"])
         note = " · 회의 종료본이 아니므로 잠정 결과로 표시" if p["provisional"] else ""
-        rows.append((p["meeting"], f"- [{label}] {p['meeting']}: {p['name']} → {n}건 추출 · "
+        rows.append((p["meeting"], f"- [{label}] {p['meeting']}: {p['name']}{where} → {n}건 추출 · "
                                    f"추출 점검: {meta['health']['summary']}{note}", meta["health"]["issues"]))
     rows += [(s["meeting"], f"- [{s['status']}] {s['meeting']}: {s['reason']}", []) for s in skipped]
     for meeting, line, issues in sorted(rows, key=lambda r: meeting_sort_key(r[0])):

@@ -159,7 +159,7 @@ def _table_lines(table):
     return lines
 
 
-def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
+def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None, ftp_dir_url=None):
     """stats에 dict를 넘기면 추출 점검용 수치를 채웁니다 (scripts/health.py가 사용).
 
     markers: 결정 표시 줄 수, extracted: 기록한 결정 수, quoted: 이전 회의 합의 인용(제외),
@@ -169,7 +169,8 @@ def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
     stats.update(markers=0, extracted=0, quoted=0, empty=0, outside=0, unrecognized=[])
     document = docx.Document(str(path))
     agenda_index = [(n, _norm_title(t)) for n, t in (agenda or {}).items()]
-    meeting_base = re.match(r"(.*/WG1_RL1/[^/]+/)", source_url)
+    # 근거 TDoc 링크는 회의 폴더의 Docs/ 기준입니다. 3GPP_SYNC에서 받은 Chair notes는 ftp_dir_url로 회의 폴더를 알려줍니다.
+    meeting_base = ftp_dir_url or (m.group(1) if (m := re.match(r"(.*/WG1_RL1/[^/]+/)", source_url)) else None)
     doc_name = Path(unquote(source_url.rsplit("/", 1)[-1])).stem
 
     entries, warnings, per_agenda = [], [], Counter()
@@ -197,7 +198,7 @@ def parse_chair_notes(path, meeting, source_url, agenda=None, stats=None):
                 if tdoc:
                     source["tdoc"] = tdoc
                     if meeting_base:
-                        source["tdoc_url"] = f"{meeting_base.group(1)}Docs/{tdoc}.zip"
+                        source["tdoc_url"] = f"{meeting_base}Docs/{tdoc}.zip"
                 entries.append({
                     "id": f"{meeting}:{agenda}:{per_agenda[agenda]:03d}",
                     "meeting": meeting,

@@ -6,6 +6,8 @@ from scripts import check_schedule as cs
 from scripts import fetch_ftp_docs as ff
 
 BASE = "https://www.3gpp.org/ftp/tsg_ran/WG1_RL1/"
+SYNC = "https://www.3gpp.org/ftp/Meetings_3GPP_SYNC/RAN1/Inbox/Chair_notes/"
+NO_SYNC = list   # 3GPP_SYNC 위치가 비어 있음 (네트워크 사용 안 함)
 
 
 def listing(url, names):
@@ -50,7 +52,7 @@ def test_final_chair_notes_name_variants_seen_on_ftp():
 def test_chair_notes_folder_name_is_case_insensitive():
     tree = {"TSGR1_122b": ["Inbox"], "TSGR1_122b/Inbox": ["Chair_Notes"],
             "TSGR1_122b/Inbox/Chair_Notes": ["Chair notes RAN1#122b eom4.docx"]}
-    _, url = ff.find_final_chair_notes("TSGR1_122b", lister=tree.__getitem__)
+    _, url = ff.find_final_chair_notes("TSGR1_122b", lister=tree.__getitem__, sync_lister=NO_SYNC)
     assert "/Inbox/Chair_Notes/" in url
 
 
@@ -77,7 +79,7 @@ def test_docx_download_is_saved_as_is(tmp_path):
 
 def test_find_final_returns_none_when_chair_notes_folder_is_missing():
     tree = {"TSGR1_128": ["Agenda", "Inbox"], "TSGR1_128/Inbox": ["drafts"]}
-    assert ff.find_final_chair_notes("TSGR1_128", lister=tree.__getitem__) is None
+    assert ff.find_final_chair_notes("TSGR1_128", lister=tree.__getitem__, sync_lister=NO_SYNC) is None
 
 
 def test_status_explains_why_there_is_no_final_yet():
@@ -85,19 +87,67 @@ def test_status_explains_why_there_is_no_final_yet():
             "TSGR1_126b/Inbox/Chair_notes": ["Chair notes RAN1#126bis_v00.docx",
                                               "Draft Chair notes RAN1#126bis_v01.docx",
                                               "RAN1#126b online and offline schedules - v00.docx"]}
-    st = ff.chair_notes_status("TSGR1_126b", lister=tree.__getitem__)
+    st = ff.chair_notes_status("TSGR1_126b", lister=tree.__getitem__, sync_lister=NO_SYNC)
     assert st["final"] is None
     assert st["reason"] == ("회의 종료본(eom) Chair notes가 아직 없음 (지금 있는 Chair notes: "
                             "Chair notes RAN1#126bis_v00.docx, Draft Chair notes RAN1#126bis_v01.docx)")
     assert "Chair_notes 폴더" in ff.chair_notes_status(
-        "TSGR1_128", lister={"TSGR1_128": ["Inbox"], "TSGR1_128/Inbox": []}.__getitem__)["reason"]
-    assert "Inbox" in ff.chair_notes_status("TSGR1_129", lister={"TSGR1_129": ["Agenda"]}.__getitem__)["reason"]
+        "TSGR1_128", lister={"TSGR1_128": ["Inbox"], "TSGR1_128/Inbox": []}.__getitem__, sync_lister=NO_SYNC)["reason"]
+    assert "Inbox" in ff.chair_notes_status("TSGR1_129", lister={"TSGR1_129": ["Agenda"]}.__getitem__, sync_lister=NO_SYNC)["reason"]
+
+
+def test_sync_location_is_checked_when_meeting_folder_has_no_final():
+    tree = {"TSGR1_126b": ["Inbox"], "TSGR1_126b/Inbox": ["Chair_notes"],
+            "TSGR1_126b/Inbox/Chair_notes": ["Chair notes RAN1#126bis_v00.docx"]}
+    sync = ["Chair notes RAN1#126bis_eom.docx", "Chair notes RAN1#126bis_v15.docx", "~$air notes RAN1#126bis_v00.docx",
+            "Chair notes RAN1#126_eom9.docx", "RAN1#126b online and offline schedules - v05.docx"]
+    st = ff.chair_notes_status("TSGR1_126b", lister=tree.__getitem__, sync_lister=lambda: sync)
+    assert st["final"] == ("Chair notes RAN1#126bis_eom.docx", SYNC + "Chair%20notes%20RAN1%23126bis_eom.docx")
+    assert st["location"] == "3GPP_SYNC"
+    # 다른 회의(#126)의 종료본은 이름의 회의 번호가 달라 쓰지 않습니다.
+    assert ff.chair_notes_status("TSGR1_127", lister={"TSGR1_127": ["Agenda"]}.__getitem__,
+                                 sync_lister=lambda: sync)["final"] is None
+
+
+def test_meeting_folder_final_wins_a_tie_and_higher_eom_wins_otherwise():
+    tree = {"TSGR1_126b": ["Inbox"], "TSGR1_126b/Inbox": ["Chair_notes"],
+            "TSGR1_126b/Inbox/Chair_notes": ["Chair notes RAN1#126bis_eom.docx"]}
+    st = ff.chair_notes_status("TSGR1_126b", lister=tree.__getitem__,
+                               sync_lister=lambda: ["Chair notes RAN1#126bis_eom.docx"])
+    assert st["location"] == "회의 폴더" and st["final"][1].startswith(BASE)
+    st = ff.chair_notes_status("TSGR1_126b", lister=tree.__getitem__,
+                               sync_lister=lambda: ["Chair notes RAN1#126bis_eom1.docx"])
+    assert st["location"] == "3GPP_SYNC" and st["final"][0] == "Chair notes RAN1#126bis_eom1.docx"
+
+
+def test_sync_drafts_count_as_provisional_candidates_while_meeting_runs():
+    tree = {"TSGR1_127": ["Inbox"], "TSGR1_127/Inbox": []}   # 회의 폴더에는 아직 Chair_notes 없음
+    st = ff.chair_notes_status("TSGR1_127", lister=tree.__getitem__,
+                               sync_lister=lambda: ["Chair notes RAN1#127_v03.docx", "Chair notes RAN1#127_v12.docx"])
+    assert st["final"] is None and st["draft"] == ("Chair notes RAN1#127_v12.docx", SYNC + "Chair%20notes%20RAN1%23127_v12.docx")
+    assert "Chair notes RAN1#127_v12.docx" in st["reason"]
+
+
+def test_unreadable_sync_location_falls_back_to_meeting_folder():
+    def broken():
+        raise ff.requests.ConnectionError("down")
+    tree = {"TSGR1_126": ["Inbox"], "TSGR1_126/Inbox": ["Chair_notes"],
+            "TSGR1_126/Inbox/Chair_notes": ["Chair notes RAN1#126_eom1.docx"]}
+    assert ff.chair_notes_status("TSGR1_126", lister=tree.__getitem__, sync_lister=broken)["final"]
+
+
+def test_chair_notes_meeting_from_file_name():
+    assert ff.chair_notes_meeting("Chair notes RAN1#126bis_eom.docx") == "RAN1#126bis"
+    assert ff.chair_notes_meeting("Draft Chair notes RAN1#125_v02.docx") == "RAN1#125"
+    assert ff.chair_notes_meeting("Chair notes RAN1#122b eom4.docx") == "RAN1#122bis"
+    assert ff.chair_notes_meeting("Chair notes RAN1#123 - eom3.docx") == "RAN1#123"
+    assert ff.chair_notes_meeting("RAN1#126b online and offline schedules - v05.docx") is None
 
 
 def test_find_final_returns_quoted_ftp_url():
     tree = {"TSGR1_126": ["Inbox"], "TSGR1_126/Inbox": ["Chair_notes"],
             "TSGR1_126/Inbox/Chair_notes": ["Chair notes RAN1#126_eom1.docx"]}
-    name, url = ff.find_final_chair_notes("TSGR1_126", lister=tree.__getitem__)
+    name, url = ff.find_final_chair_notes("TSGR1_126", lister=tree.__getitem__, sync_lister=NO_SYNC)
     assert url == BASE + "TSGR1_126/Inbox/Chair_notes/Chair%20notes%20RAN1%23126_eom1.docx"
 
 

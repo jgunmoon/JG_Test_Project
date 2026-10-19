@@ -114,24 +114,28 @@ def main():
     # 출력은 Actions 실행 요약(마크다운)에도 그대로 들어가므로 목록 형식으로 씁니다.
     print(f"{since} 이후 회의 확인 결과:\n")
     changed = False
+    rows = []  # (회의, 출력 줄, 추출 점검 결과) — 처리 순서와 관계없이 회의 번호 순으로 출력합니다
     for p in pending:
         status = "갱신" if p["meeting"] in db["meetings"] else "신규"
         label = f"{status} · 잠정" if p["provisional"] else status
         if args.dry_run:
             note = " (종료본 아님: 결정이 있으면 잠정으로 반영)" if p["provisional"] else ""
-            print(f"- [{label}] {p['meeting']}: {p['name']}{note}")
+            rows.append((p["meeting"], f"- [{label}] {p['meeting']}: {p['name']}{note}", []))
             continue
         meta = process(db, p)
         if meta is None:
-            print(f"- [대기] {p['meeting']}: {p['reason']} · 최신 비종료본({p['name']})에는 결정이 아직 없음 (회의 전 빈 틀)")
+            rows.append((p["meeting"], f"- [대기] {p['meeting']}: {p['reason']} · 최신 비종료본({p['name']})에는 "
+                                       "결정이 아직 없음 (회의 전 빈 틀)", []))
             continue
         changed = True
         n = sum(1 for e in db["entries"] if e["meeting"] == p["meeting"])
         note = " · 회의 종료본이 아니므로 잠정 결과로 표시" if p["provisional"] else ""
-        print(f"- [{label}] {p['meeting']}: {p['name']} → {n}건 추출 · 추출 점검: {meta['health']['summary']}{note}")
-        report_issues(p["meeting"], meta["health"]["issues"])
-    for s in skipped:
-        print(f"- [{s['status']}] {s['meeting']}: {s['reason']}")
+        rows.append((p["meeting"], f"- [{label}] {p['meeting']}: {p['name']} → {n}건 추출 · "
+                                   f"추출 점검: {meta['health']['summary']}{note}", meta["health"]["issues"]))
+    rows += [(s["meeting"], f"- [{s['status']}] {s['meeting']}: {s['reason']}", []) for s in skipped]
+    for meeting, line, issues in sorted(rows, key=lambda r: meeting_sort_key(r[0])):
+        print(line)
+        report_issues(meeting, issues)
     print()
     if not changed:
         print("새로 반영할 회의가 없습니다.")

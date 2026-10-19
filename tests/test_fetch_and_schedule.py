@@ -217,3 +217,24 @@ def test_fetch_agenda_csv_only_when_present():
     text = ff.fetch_agenda_csv("TSGR1_124", lister=tree.__getitem__,
                                getter=lambda url: '\ufeff"1","Opening"'.encode("utf-8"))
     assert text == '"1","Opening"'
+
+
+def test_run_summary_is_listed_in_meeting_order(monkeypatch, tmp_path, capsys):
+    import json
+    import sys
+    url = f"{BASE}TSGR1_125/Inbox/Chair_notes/Chair notes RAN1#125_eom.docx"
+    (tmp_path / "db.json").write_text(json.dumps({"meetings": {"RAN1#125": {
+        "chair_notes_url": url, "parser_version": cs.PARSER_VERSION}}, "entries": []}))
+    (tmp_path / "cfg.yaml").write_text("track_from: RAN1#125\n")
+    monkeypatch.setattr(cs, "DB_PATH", tmp_path / "db.json")
+    monkeypatch.setattr(cs, "CONFIG_PATH", tmp_path / "cfg.yaml")
+    monkeypatch.setattr(cs.ff, "list_meeting_folders", lambda: ["TSGR1_127", "TSGR1_126b", "TSGR1_125"])
+    monkeypatch.setattr(cs.ff, "chair_notes_status", fake_finder(
+        {"TSGR1_125": "Chair notes RAN1#125_eom.docx"},
+        drafts={"TSGR1_126b": "Draft Chair notes RAN1#126bis_v01.docx"}))
+    monkeypatch.setattr(cs, "process", lambda db, p: None)   # 비종료본에 결정 없음
+    monkeypatch.setattr(sys, "argv", ["check_schedule"])
+    cs.main()
+    lines = [l for l in capsys.readouterr().out.splitlines() if l.startswith("- [")]
+    assert [l.split("]")[1].split(":")[0].strip() for l in lines] == ["RAN1#125", "RAN1#126bis", "RAN1#127"]
+    assert lines[1].startswith("- [대기] RAN1#126bis") and "회의 전 빈 틀" in lines[1]

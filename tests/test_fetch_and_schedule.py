@@ -80,6 +80,20 @@ def test_find_final_returns_none_when_chair_notes_folder_is_missing():
     assert ff.find_final_chair_notes("TSGR1_128", lister=tree.__getitem__) is None
 
 
+def test_status_explains_why_there_is_no_final_yet():
+    tree = {"TSGR1_126b": ["Inbox"], "TSGR1_126b/Inbox": ["Chair_notes", "drafts"],
+            "TSGR1_126b/Inbox/Chair_notes": ["Chair notes RAN1#126bis_v00.docx",
+                                              "Draft Chair notes RAN1#126bis_v01.docx",
+                                              "RAN1#126b online and offline schedules - v00.docx"]}
+    st = ff.chair_notes_status("TSGR1_126b", lister=tree.__getitem__)
+    assert st["final"] is None
+    assert st["reason"] == ("회의 종료본(eom) Chair notes가 아직 없음 (지금 있는 Chair notes: "
+                            "Chair notes RAN1#126bis_v00.docx, Draft Chair notes RAN1#126bis_v01.docx)")
+    assert "Chair_notes 폴더" in ff.chair_notes_status(
+        "TSGR1_128", lister={"TSGR1_128": ["Inbox"], "TSGR1_128/Inbox": []}.__getitem__)["reason"]
+    assert "Inbox" in ff.chair_notes_status("TSGR1_129", lister={"TSGR1_129": ["Agenda"]}.__getitem__)["reason"]
+
+
 def test_find_final_returns_quoted_ftp_url():
     tree = {"TSGR1_126": ["Inbox"], "TSGR1_126/Inbox": ["Chair_notes"],
             "TSGR1_126/Inbox/Chair_notes": ["Chair notes RAN1#126_eom1.docx"]}
@@ -88,10 +102,12 @@ def test_find_final_returns_quoted_ftp_url():
 
 
 def fake_finder(table):
-    def finder(folder):
+    def status(folder):
         name = table.get(folder)
-        return (name, f"{BASE}{folder}/Inbox/Chair_notes/{name}") if name else None
-    return finder
+        if not name:
+            return {"final": None, "reason": "회의 종료본(eom) Chair notes가 아직 없음"}
+        return {"final": (name, f"{BASE}{folder}/Inbox/Chair_notes/{name}"), "reason": None}
+    return status
 
 
 def test_pending_meetings_are_new_or_updated_finals_since_start():
@@ -109,8 +125,13 @@ def test_pending_meetings_are_new_or_updated_finals_since_start():
         "RAN1#126": {"chair_notes_url": f"{BASE}TSGR1_126/Inbox/Chair_notes/Chair notes RAN1#126_eom.docx",
                      "parser_version": v},
     }}
-    pending = cs.pending_meetings(db, folders, finder, since="RAN1#125")
+    skipped = []
+    pending = cs.pending_meetings(db, folders, finder, since="RAN1#125", skipped=skipped)
     assert [(p["folder"], p["meeting"]) for p in pending] == [("TSGR1_126", "RAN1#126")]
+    assert skipped == [
+        {"meeting": "RAN1#125", "status": "반영됨", "reason": "같은 문서를 이미 반영함 (Chair notes RAN1#125_eom.docx)"},
+        {"meeting": "RAN1#126bis", "status": "대기", "reason": "회의 종료본(eom) Chair notes가 아직 없음"},
+    ]
 
 
 def test_meeting_is_reprocessed_when_parser_version_changes():
@@ -127,7 +148,7 @@ def test_finder_is_not_called_for_meetings_before_start():
 
     def finder(folder):
         calls.append(folder)
-        return None
+        return {"final": None, "reason": "x"}
 
     cs.pending_meetings({"meetings": {}}, ["TSGR1_100", "TSGR1_126"], finder, since="RAN1#126")
     assert calls == ["TSGR1_126"]

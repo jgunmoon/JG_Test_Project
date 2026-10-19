@@ -58,20 +58,28 @@ def pick_final_chair_notes(names):
     return max(finals)[1] if finals else None
 
 
-def find_final_chair_notes(folder, lister=list_dir):
-    """(파일 이름, FTP URL) 또는 None."""
+def chair_notes_status(folder, lister=list_dir):
+    """{"final": (파일 이름, FTP URL) 또는 None, "reason": 종료본이 없을 때 그 이유}."""
     # 3GPP 서버는 없는 폴더에 404가 아니라 403을 돌려줘서 접속 차단과 구분되지 않습니다.
     # 그래서 상위 목록에서 폴더가 있는지 먼저 확인합니다.
     # 폴더 이름은 회의에 따라 'Chair_notes' 또는 'Chair_Notes'입니다.
     if "Inbox" not in lister(folder):
-        return None
+        return {"final": None, "reason": "회의 폴더에 Inbox가 아직 없음"}
     sub = next((n for n in lister(f"{folder}/Inbox") if n.lower() == "chair_notes"), None)
     if not sub:
-        return None
-    name = pick_final_chair_notes(lister(f"{folder}/Inbox/{sub}"))
+        return {"final": None, "reason": "Inbox에 Chair_notes 폴더가 아직 없음"}
+    names = lister(f"{folder}/Inbox/{sub}")
+    name = pick_final_chair_notes(names)
     if not name:
-        return None
-    return name, f"{BASE_URL}{folder}/Inbox/{sub}/{quote(name)}"
+        notes = [n for n in names if "chair notes" in n.lower()]
+        found = f"지금 있는 Chair notes: {', '.join(notes)}" if notes else "Chair notes 파일 없음"
+        return {"final": None, "reason": f"회의 종료본(eom) Chair notes가 아직 없음 ({found})"}
+    return {"final": (name, f"{BASE_URL}{folder}/Inbox/{sub}/{quote(name)}"), "reason": None}
+
+
+def find_final_chair_notes(folder, lister=list_dir):
+    """(파일 이름, FTP URL) 또는 None."""
+    return chair_notes_status(folder, lister)["final"]
 
 
 def fetch_agenda_csv(folder, lister=list_dir, getter=None):

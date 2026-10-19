@@ -72,6 +72,7 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
 - 3GPP 서버(Cloudflare)는 기본 curl/requests User-Agent를 403으로 거부합니다. 브라우저 User-Agent를 보내야 합니다.
 - 3GPP 서버는 없는 폴더에도 404가 아니라 403을 돌려줍니다. 폴더 존재 여부는 상위 목록으로 확인합니다.
 - '회의 종료 다음 날' 트리거는 일정표가 아니라 FTP에 회의 종료본(_eom)이 새로 올라왔는지(또는 갱신됐는지)로 판단합니다.
+  실행 결과(Actions 실행 요약)에는 회의마다 [신규]/[갱신]/[반영됨]/[대기]와 이유(예: 종료본 없이 v00·Draft만 있음)를 보여줍니다.
 - 회의 종료본 이름은 회의마다 다릅니다: `_eom1.docx`, ` eom.zip`, ` - eom3.docx`, ` - eom_03.docx`, 폴더 `Chair_Notes`(대문자) 등.
 - Agenda 번호는 공식 `TSGR1_<번호>/Agenda/agenda.csv`(RAN1#124부터)가 있으면 그 번호를 씁니다.
   공식 Agenda에는 `10.5.0`처럼 Word 자동 번호로 표현되지 않는 0번 항목이 있어 계산값만 믿으면 번호가 밀립니다.

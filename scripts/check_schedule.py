@@ -25,8 +25,13 @@ CONFIG_PATH = ROOT / "config" / "tracked_items.yaml"
 DB_PATH = ROOT / "data" / "agreements_db.json"
 
 
-def pending_meetings(db, folders, finder, since):
-    """처리가 필요한 회의 목록 (오래된 순)."""
+def pending_meetings(db, folders, status, since, skipped=None):
+    """처리가 필요한 회의 목록 (오래된 순).
+
+    skipped에 list를 넘기면 건너뛴 회의를 채웁니다: 상태 '반영됨'(같은 문서·같은 파서로 처리함)
+    또는 '대기'(회의 종료본이 아직 FTP에 없음)와 그 이유.
+    """
+    skipped = [] if skipped is None else skipped
     start = meeting_sort_key(since)
     candidates = []
     for folder in folders:
@@ -39,12 +44,14 @@ def pending_meetings(db, folders, finder, since):
 
     pending = []
     for meeting, folder in sorted(candidates, key=lambda c: meeting_sort_key(c[0])):
-        final = finder(folder)
-        if not final:
+        found = status(folder)
+        if not found["final"]:
+            skipped.append({"meeting": meeting, "status": "대기", "reason": found["reason"]})
             continue
-        name, url = final
+        name, url = found["final"]
         done = db["meetings"].get(meeting, {})
         if done.get("chair_notes_url") == url and done.get("parser_version") == PARSER_VERSION:
+            skipped.append({"meeting": meeting, "status": "반영됨", "reason": f"같은 문서를 이미 반영함 ({name})"})
             continue  # 같은 문서를 같은 파서로 이미 처리함
         pending.append({"meeting": meeting, "folder": folder, "name": name, "url": url})
     return pending
@@ -72,13 +79,19 @@ def main():
     db = json.loads(DB_PATH.read_text(encoding="utf-8"))
     since = args.since or config["track_from"]
 
-    pending = pending_meetings(db, ff.list_meeting_folders(), ff.find_final_chair_notes, since)
-    if not pending:
-        print(f"{since} 이후 새로 처리할 회의가 없습니다.")
-        return
+    skipped = []
+    pending = pending_meetings(db, ff.list_meeting_folders(), ff.chair_notes_status, since, skipped)
+    # 출력은 Actions 실행 요약(마크다운)에도 그대로 들어가므로 목록 형식으로 씁니다.
+    print(f"{since} 이후 회의 확인 결과:\n")
     for p in pending:
         status = "갱신" if p["meeting"] in db["meetings"] else "신규"
-        print(f"[{status}] {p['meeting']}: {p['name']}")
+        print(f"- [{status}] {p['meeting']}: {p['name']}")
+    for s in skipped:
+        print(f"- [{s['status']}] {s['meeting']}: {s['reason']}")
+    print()
+    if not pending:
+        print("새로 처리할 회의가 없습니다.")
+        return
     if args.dry_run:
         return
 

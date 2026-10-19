@@ -90,6 +90,8 @@ python -m scripts.generate_report      # data/agreements_db.json → reports/ �
 - 내려받은 원본 문서는 `downloads/`(gitignore)나 임시 폴더에 두고 커밋하지 않습니다.
 
 - `reports/index.html`은 팀 공용 HTML 대시보드입니다 (`scripts/render_html.py`). 상세 리포트 링크는 config의 `report_base_url` 기준입니다.
+- 대시보드·README 맨 위 '마지막 업데이트'는 DB의 `updated_at`(새 결과가 반영될 때만 바뀜)입니다.
+  대시보드의 '마지막 확인'은 Pages 게시 단계가 `__CHECKED_AT__` 자리에 실행 시각을 채웁니다(커밋 없음). 자리 표시 형식을 바꾸면 워크플로도 함께 고칩니다.
 - HTML 대시보드의 '결정 검색'은 전체 결정을 페이지에 넣어 브라우저에서 키워드로 찾습니다 (서버 불필요).
   추천 검색어 버튼은 config의 `search_presets`에 적습니다. 검색 스크립트(`SCRIPT`)는 raw 문자열이므로 JS 문법 그대로 씁니다.
 - 회의 간 같은 Agenda는 번호가 아니라 '섹션 제목 + Agenda 제목'으로 이어 붙입니다 (`scripts/agenda.py`).

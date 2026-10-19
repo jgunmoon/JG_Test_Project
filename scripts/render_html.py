@@ -9,9 +9,10 @@ from collections import Counter, defaultdict
 from html import escape
 
 from scripts import agenda, delta
-from scripts.generate_report import TYPES, all_sections, meeting_slug, meeting_sort_key, provisional, slug
+from scripts.generate_report import TYPES, all_sections, format_kst, meeting_slug, meeting_sort_key, provisional, slug
 
 TITLE = "RAN1 Decision Tracker"
+CHECKED_AT = '<span class="checked" hidden>__CHECKED_AT__</span>'
 TYPE_LABEL = {"Agreement": "Agreement", "Working Assumption": "WA", "Conclusion": "Conclusion"}
 
 CSS = """
@@ -46,6 +47,8 @@ a:focus-visible, summary:focus-visible, .bar:focus-visible { outline: 2px solid 
 .muted { color: var(--ink-2); }
 .small { font-size: 13px; }
 header { display: grid; gap: 10px; }
+.updated { margin: 0 0 6px; font-size: 13px; color: var(--ink-2); }
+.updated b { font-family: var(--font-data); font-weight: 500; color: var(--ink); white-space: nowrap; }
 .facts { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 4px 0 0; }
 .facts div { display: grid; gap: 2px; }
 .facts dt { font-size: 12px; color: var(--ink-3); }
@@ -522,8 +525,11 @@ def render_body(config, db):
         f'<p class="notice small">{chip} <b>{_e(m)}</b>는 회의 종료본이 아닌 <span class="mono">{_e(provisional(db, m)["doc"])}</span> '
         "기준 잠정 결과입니다. 결정이 바뀌거나 빠질 수 있으며, 종료본이 FTP에 올라오면 다음 실행에서 자동으로 교체됩니다.</p>"
         for m in meetings if provisional(db, m))
+    updated = format_kst(db.get("updated_at"))
+    # '마지막 확인' 시각은 GitHub Actions의 Pages 게시 단계가 CHECKED_AT 자리에 채웁니다 (커밋 없이 매 실행마다 갱신).
     parts = [f"""<main class="wrap">
 <header>
+  <p class="updated">마지막 업데이트 <b>{_e(updated or "기록 없음")}</b>{CHECKED_AT}</p>
   <span class="eyebrow">3GPP TSG RAN WG1 · Chair notes 기준 · 공식 Agenda별</span>
   <h1>{TITLE}</h1>
   <dl class="facts">

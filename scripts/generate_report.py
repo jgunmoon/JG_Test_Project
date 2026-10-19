@@ -100,6 +100,16 @@ def _short(meeting):
     return meeting.replace("RAN1", "")
 
 
+def format_kst(iso):
+    """'2026-10-17T01:52:52+00:00' → '2026-10-17 10:52 KST'. 값이 없으면 None."""
+    from datetime import datetime, timedelta, timezone
+
+    if not iso:
+        return None
+    kst = datetime.fromisoformat(iso).astimezone(timezone(timedelta(hours=9)))
+    return kst.strftime("%Y-%m-%d %H:%M KST")
+
+
 def provisional(db, meeting):
     """회의 종료본이 아닌 Chair notes로 처리한 회의면 {"doc", "reason"}, 아니면 None."""
     return db.get("meetings", {}).get(meeting, {}).get("provisional")
@@ -231,6 +241,8 @@ def render_dashboard(config, db):
     from scripts import agenda, delta
 
     lines = ["# RAN1 결정 트래커 (RAN1 Decision Tracker)", "", GENERATED_NOTE, ""]
+    if format_kst(db.get("updated_at")):
+        lines += [f"**마지막 업데이트: {format_kst(db['updated_at'])}** (새 회의 결과가 DB에 반영된 시각)", ""]
     meetings = _meetings(db)
     if not meetings:
         return "\n".join(lines + ["아직 처리된 회의가 없습니다.", ""])

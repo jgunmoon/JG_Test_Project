@@ -12,6 +12,7 @@
 import argparse
 import json
 import os
+from datetime import datetime, timezone
 
 import yaml
 
@@ -141,6 +142,7 @@ def main():
         print("새로 반영할 회의가 없습니다.")
         return
 
+    db["updated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     write_reports(config, db, ROOT / "reports")
     DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("DB와 리포트를 갱신했습니다.")

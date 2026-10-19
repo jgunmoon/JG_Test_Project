@@ -7,6 +7,7 @@ DB는 `scripts/parse_agreements.py`가 Chair notes에서 만들며, 같은 문�
 ```json
 {
   "schema_version": 1,
+  "updated_at": "2026-10-17T01:52:52+00:00",
   "meetings": {
     "RAN1#126": {
       "ftp_dir": "TSGR1_126",
@@ -52,6 +53,7 @@ DB는 `scripts/parse_agreements.py`가 Chair notes에서 만들며, 같은 문�
 | `id` | `회의:Agenda:순번`. 같은 문서를 다시 파싱하면 같은 값이 나옵니다. |
 | `type` | `Agreement`, `Working Assumption`, `Conclusion` 중 하나. 벤더 제안(Proposal)이나 Observation은 저장하지 않습니다. |
 | `agenda_path` | **필수.** 최상위 Agenda부터 결정이 기록된 Agenda까지의 번호와 제목. 결정은 모든 Agenda에서 기록합니다. |
+| `updated_at` | 새 회의 결과가 DB에 마지막으로 반영된 시각(UTC). 대시보드·README 맨 위 '마지막 업데이트'에 한국시간으로 표시합니다. |
 | `meetings.*.provisional` | 선택. 회의 종료본이 아닌 최신 Chair notes로 처리한 '잠정' 회의에만 있습니다. 종료본으로 다시 처리하면 사라집니다. |
 | `agenda_item` | 결정이 기록된 Agenda 번호. 공식 agenda.csv가 있으면(RAN1#124~) 그 번호, 없으면 Chair notes의 Word 자동 번호로 계산한 값입니다. |
 | `text` | 원문 그대로 저장합니다. 요약은 리포트 단계에서만 합니다. |

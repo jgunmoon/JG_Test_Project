@@ -106,3 +106,18 @@ def test_provisional_meeting_has_notice_and_chips():
     assert html.count('<span class="chip candidate">잠정</span>') >= 3   # 안내, 최신 회의, 회의 목록
     assert '"provisional":["RAN1#126"]' in page
     assert 'class="notice small"' not in html_part(rh.render_html(CONFIG, DB))
+
+
+def test_last_update_is_at_the_top_with_a_slot_for_the_check_time():
+    page = html_part(rh.render_html(CONFIG, {**DB, "updated_at": "2026-10-17T01:52:52+00:00"}))
+    header = page[page.index("<header>"):]
+    assert header.index('<p class="updated">') < header.index("<h1>")
+    # Pages 게시 단계(auto_tracker.yml)가 이 자리 표시를 그대로 찾아 바꾸므로 형식이 바뀌면 안 됩니다.
+    assert '마지막 업데이트 <b>2026-10-17 10:52 KST</b><span class="checked" hidden>__CHECKED_AT__</span>' in page
+    assert "마지막 업데이트 <b>기록 없음</b>" in html_part(rh.render_html(CONFIG, DB))
+
+
+def test_workflow_stamps_the_exact_placeholder():
+    from pathlib import Path
+    workflow = (Path(__file__).parent.parent / ".github" / "workflows" / "auto_tracker.yml").read_text()
+    assert rh.CHECKED_AT.replace('"', '\\"') in workflow

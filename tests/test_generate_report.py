@@ -161,3 +161,13 @@ def test_provisional_meeting_is_labelled_everywhere(tmp_path):
     assert "# RAN1#117 결과 요약" in (tmp_path / "by_meeting" / "ran1_117.md").read_text()
     sec = (tmp_path / "by_agenda" / "rel-20-study-of-6gr.md").read_text()
     assert "| RAN1#118 (잠정) | 10.5.2 |" in sec and "| RAN1#117 | 10.5.2 |" in sec
+
+
+def test_last_update_time_is_shown_in_korean_time():
+    assert gr.format_kst("2026-10-17T01:52:52+00:00") == "2026-10-17 10:52 KST"
+    assert gr.format_kst("2026-10-19T23:47:00+00:00") == "2026-10-20 08:47 KST"   # 날짜가 넘어가는 경우
+    assert gr.format_kst(None) is None
+    db = make_db(entry("RAN1#118", 1))
+    db["updated_at"] = "2026-10-17T01:52:52+00:00"
+    assert "**마지막 업데이트: 2026-10-17 10:52 KST**" in gr.render_dashboard(CONFIG, db)
+    assert "마지막 업데이트" not in gr.render_dashboard(CONFIG, make_db(entry("RAN1#118", 1)))

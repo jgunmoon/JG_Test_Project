@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "updated_at": "2026-10-17T01:52:52+00:00",
   "meetings": {
     "RAN1#122": {
       "ftp_dir": "TSGR1_122",

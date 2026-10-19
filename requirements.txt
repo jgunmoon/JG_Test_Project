@@ -1,4 +1,2 @@
 pyyaml
-python-docx
-requests
 pytest

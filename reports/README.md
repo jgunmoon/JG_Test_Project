@@ -2,9 +2,9 @@
 
 > 이 파일은 `scripts/generate_report.py`가 자동으로 생성합니다. 직접 수정하지 마세요.
 
-**마지막 업데이트: 2026-10-19 20:12 KST** (새 회의 결과가 DB에 반영된 시각)
+**마지막 업데이트: 2026-10-21 09:04 KST** (새 회의 결과가 DB에 반영된 시각)
 
-**최신 회의: RAN1#126bis** ([전체 결과](by_meeting/ran1_126bis.md)) · 추적 RAN1#122–#126bis · 누적 결정 3,039건
+**최신 회의: RAN1#126bis** ([전체 결과](by_meeting/ran1_126bis.md)) · 추적 RAN1#122–#126bis · 누적 결정 3,040건
 
 공식 Agenda의 최상위 항목(섹션)별 현황입니다. 미결 FFS는 최신 회의 결정 안에 남아 있는 FFS 항목 수입니다.
 
@@ -13,7 +13,7 @@
 | 7 Pre-Rel-19 NR Maintenance | 3 | 0 | 0 | 0 | 51 | [보기](by_agenda/pre-rel-19-nr-maintenance.md) |
 | 8 Maintenance on Rel-19 NR and E-UTRA | 27 | 0 | 2 | 0 | 667 | [보기](by_agenda/maintenance-on-rel-19-nr-and-e-utra.md) |
 | 9 Release 20 NR | 98 | 2 | 3 | 56 | 927 | [보기](by_agenda/release-20-nr.md) |
-| 10 Rel-20 Study of 6GR | 204 | 5 | 17 | 118 | 1083 | [보기](by_agenda/rel-20-study-of-6gr.md) |
+| 10 Rel-20 Study of 6GR | 204 | 5 | 18 | 118 | 1084 | [보기](by_agenda/rel-20-study-of-6gr.md) |
 | 11 TEI | 1 | 0 | 0 | 0 | 4 | [보기](by_agenda/tei.md) |
 | 6 Pre-Rel-19 E-UTRA Maintenance (~RAN1#126) | 0 | 0 | 0 | 0 | 4 | [보기](by_agenda/pre-rel-19-e-utra-maintenance.md) |
 | 9 Rel-19 UE Features (~RAN1#123) | 0 | 0 | 0 | 0 | 292 | [보기](by_agenda/rel-19-ue-features.md) |
@@ -28,7 +28,7 @@ FFS 후속 결정 후보는 키워드 자동 매칭 결과입니다. 섹션 리�
 | 7 Pre-Rel-19 NR Maintenance | 3 | 0 | 0 | 0 | +0 / -0 |
 | 8 Maintenance on Rel-19 NR and E-UTRA | 29 | 0 | 0 | 0 | +1 / -0 |
 | 9 Release 20 NR | 103 | 0 | 35 | 14 | +0 / -0 |
-| 10 Rel-20 Study of 6GR | 226 | 1 | 156 | 50 | +1 / -1 |
+| 10 Rel-20 Study of 6GR | 227 | 1 | 156 | 50 | +1 / -1 |
 | 11 TEI | 1 | 0 | 0 | 0 | +0 / -0 |
 
 ## 추출 점검
